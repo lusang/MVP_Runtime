@@ -1,0 +1,45 @@
+{
+  "dataset": "delivery",
+  "label": "neg",
+  "neg_category": "lighting_neg",
+  "attributes": {
+    "algo_uniform": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_vehicle": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_vest": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_package": {
+      "has_target": true,
+      "is_blurred": true,
+      "is_occluded": false
+    }
+  },
+  "scene": {
+    "priority": "P1",
+    "view": "doorbell",
+    "lighting": "strong_light",
+    "distance": "near",
+    "is_corner": false
+  },
+  "meta": {
+    "locked_at": 1778317850.1523385,
+    "locked_by": "User_w4ul",
+    "source_file": "",
+    "updated_at": "2026-04-28 10:58:55",
+    "updated_by": "User_3d37",
+    "versions": [
+      "v1.0.0"
+    ],
+    "data_source": "purchased"
+  }
+}

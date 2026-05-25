@@ -1,0 +1,170 @@
+{
+  "run_id": "0fe455c1-cbde-420a-a1f0-d68cd26ec44e",
+  "task_id": "batch_test_001",
+  "status": "completed",
+  "frames": [
+    {
+      "frame_id": "img_001",
+      "status": "completed",
+      "annotation_result": {
+        "image": "C:/Users/Administrator/Documents/tools/MVP_Runtime-main/MVP_Runtime-main/temp/test.jpg",
+        "objects": []
+      },
+      "runtime_trace": {
+        "steps": [
+          {
+            "step_id": "negative:gemini-2.0-flash"
+          },
+          {
+            "step_id": "detect:yolo-world-v2-x"
+          },
+          {
+            "step_id": "verify:gemini-2.0-flash"
+          },
+          {
+            "step_id": "quality:opencv-heuristics"
+          },
+          {
+            "step_id": "attribute:gemini-2.0-flash"
+          },
+          {
+            "step_id": "negative:gemini-2.0-flash"
+          },
+          {
+            "step_id": "merge:gemini-2.0-flash"
+          }
+        ],
+        "candidate_history": [],
+        "planner_decisions": {
+          "plan_id": "a76ed066-2b32-4f9d-83c5-7f9e726a37ff",
+          "planner_model": "_StaticPlanFactory",
+          "planner_version": "1.0",
+          "steps": [
+            {
+              "step": "negative",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "full_image",
+              "order": 0,
+              "per_candidate": false,
+              "scope": "negative",
+              "params": {
+                "scene_check": true,
+                "attribute_key": "Pure Negative"
+              }
+            },
+            {
+              "step": "detect",
+              "model_id": "yolo-world-v2-x",
+              "data_flow": "full_image",
+              "order": 1,
+              "per_candidate": false,
+              "scope": null,
+              "params": {}
+            },
+            {
+              "step": "verify",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "crop",
+              "order": 2,
+              "per_candidate": true,
+              "scope": null,
+              "params": {}
+            },
+            {
+              "step": "quality",
+              "model_id": "opencv-heuristics",
+              "data_flow": "crop",
+              "order": 3,
+              "per_candidate": true,
+              "scope": "quality",
+              "params": {}
+            },
+            {
+              "step": "attribute",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "crop",
+              "order": 4,
+              "per_candidate": true,
+              "scope": "semantic",
+              "params": {}
+            },
+            {
+              "step": "negative",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "full_image",
+              "order": 5,
+              "per_candidate": true,
+              "scope": "negative",
+              "params": {}
+            },
+            {
+              "step": "merge",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "full_image",
+              "order": 6,
+              "per_candidate": false,
+              "scope": null,
+              "params": {}
+            }
+          ],
+          "early_exit_rules": [
+            {
+              "condition": "scene_pure_negative",
+              "reason": "scene confirmed pure negative — no target object present"
+            }
+          ],
+          "skip_conditions": [
+            {
+              "step": "negative",
+              "condition": "scene_pure_negative",
+              "reason": "Pure Negative already confirmed at scene level"
+            },
+            {
+              "step": "attribute",
+              "condition": "all(not c.exists for c in candidates)",
+              "reason": "all candidates rejected by verification — no targets to assess"
+            }
+          ]
+        },
+        "quality_scores": [],
+        "merge_reasoning": [
+          {
+            "step": "yolo_detection",
+            "input": "Full image: C:/Users/Administrator/Documents/tools/MVP_Runtime-main/MVP_Runtime-main/temp/test.jpg",
+            "output": "0 candidate(s) detected",
+            "reasoning": "YOLO-World v2 open-vocabulary detection for 'Package'."
+          },
+          {
+            "step": "merge",
+            "input": "0 candidate(s) with all intermediate results",
+            "output": "0 positive, 0 negative",
+            "reasoning": "Merge confidence computed independently with agreement/conflict signals: detector+verify agreement, attribute confidence quality, and negative flag penalties applied. Merge confidence is the final authority."
+          }
+        ],
+        "annotation_panel": null,
+        "meta": {
+          "run_id": "27e05b5d-b126-414b-bfcb-f5e0f6a0c0ae",
+          "engine": "RuntimeEngine",
+          "version": "mvp-2.0",
+          "elapsed_ms": 316.778,
+          "plan_id": "a76ed066-2b32-4f9d-83c5-7f9e726a37ff",
+          "planner_model": "_StaticPlanFactory",
+          "object_name": "Package",
+          "template_path": "C:/Users/Administrator/Documents/tools/MVP_Runtime-main/MVP_Runtime-main/temp/test.jpg",
+          "scene_pure_negative": false,
+          "executed_steps": [
+            "negative:gemini-2.0-flash",
+            "detect:yolo-world-v2-x",
+            "verify:gemini-2.0-flash",
+            "quality:opencv-heuristics",
+            "attribute:gemini-2.0-flash",
+            "negative:gemini-2.0-flash",
+            "merge:gemini-2.0-flash"
+          ],
+          "merge_adapter": "GeminiMergerMock",
+          "preselection_dir": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\27e05b5d-b126-414b-bfcb-f5e0f6a0c0ae"
+        }
+      }
+    }
+  ]
+}

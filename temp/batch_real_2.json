@@ -1,0 +1,293 @@
+{
+  "template": "C:\\Users\\Administrator\\Documents\\Project\\MVP_Runtime\\resource\\Template.json",
+  "object_name": "Package",
+  "plan_id": "c1150d43-1b52-4e90-956e-d341d548457c",
+  "planner_model": "_StaticPlanFactory",
+  "plan_steps": [
+    "negative:gemini-2.0-flash",
+    "detect:yolo-world-v2-x",
+    "verify:gemini-2.0-flash",
+    "quality:opencv-heuristics",
+    "attribute:gemini-2.0-flash",
+    "negative:gemini-2.0-flash",
+    "merge:gemini-2.0-flash"
+  ],
+  "total_images": 2,
+  "success_count": 2,
+  "error_count": 0,
+  "elapsed_sec": 60.9,
+  "mock_mode": false,
+  "results": [
+    {
+      "image": "C:\\Users\\Administrator\\Documents\\Project\\MVP_Runtime\\resource\\package\\pos\\007cf651a765bef8f9b7a63eca04737c.jpeg",
+      "annotation_result": {
+        "image": "C:\\Users\\Administrator\\Documents\\Project\\MVP_Runtime\\resource\\package\\pos\\007cf651a765bef8f9b7a63eca04737c.jpeg",
+        "objects": [
+          {
+            "bbox": [
+              130.20626831054688,
+              447.4678039550781,
+              309.43701171875,
+              540.0
+            ],
+            "category": "Package",
+            "attributes": {
+              "package_form": [
+                "box"
+              ]
+            },
+            "confidence": 0.43,
+            "status": "accepted"
+          }
+        ]
+      },
+      "runtime_trace": {
+        "steps": [
+          {
+            "step_id": "negative:gemini-2.0-flash"
+          },
+          {
+            "step_id": "detect:yolo-world-v2-x"
+          },
+          {
+            "step_id": "verify:gemini-2.0-flash"
+          },
+          {
+            "step_id": "quality:opencv-heuristics"
+          },
+          {
+            "step_id": "attribute:gemini-2.0-flash"
+          },
+          {
+            "step_id": "negative:gemini-2.0-flash"
+          },
+          {
+            "step_id": "merge:gemini-2.0-flash"
+          }
+        ],
+        "merge_reasoning": [
+          {
+            "step": "yolo_detection",
+            "input": "image",
+            "output": "obj_0  yolo=0.13  bbox=(130,447)-(309,540)",
+            "reasoning": "YOLO detector found a potential object with a low confidence score."
+          },
+          {
+            "step": "gemini_verification",
+            "input": "bbox from yolo_detection",
+            "output": "obj_0  ✓ ok  score=0.70  \"The image shows a blurred package-like object, possibly a cardboard box.\"",
+            "reasoning": "The verification model confirmed the object as a possible package with moderate confidence."
+          },
+          {
+            "step": "opencv_quality",
+            "input": "image crop of obj_0",
+            "output": "obj_0  normal — all attributes feasible",
+            "reasoning": "Quality check did not identify any issues with the object."
+          },
+          {
+            "step": "gemini_semantic",
+            "input": "image crop of obj_0",
+            "output": "obj_0  package_form=['box'](0.00), brand_logo=None(1.00), size_category=None(0.00)",
+            "reasoning": "Semantic attributes identified package form as box with low confidence, no brand logo with high confidence, and no size category."
+          },
+          {
+            "step": "gemini_negative",
+            "input": "image crop of obj_0 and object description",
+            "output": "obj_0  no flags",
+            "reasoning": "Negative check did not find any negative flags for this object."
+          },
+          {
+            "step": "merge",
+            "input": "detection_confidence=0.13, verification_confidence=0.7, negative_flags=None",
+            "output": "is_positive=true, confidence=0.43",
+            "reasoning": "Both the detector and verifier agreed the object is a package, resulting in is_positive=true. Confidence is derived from averaging and weighting detector and verification confidence: (0.13+0.7)/2 = 0.415. There is no penalty from quality check or negative flag, the final confidence is 0.415, rounding to 0.43."
+          }
+        ],
+        "annotation_panel": {
+          "obj_0": {
+            "is_positive": true,
+            "negative_category": null,
+            "confidence": 0.43,
+            "detection_confidence": 0.13,
+            "verification_confidence": 0.7,
+            "merge_confidence": 0.43,
+            "attributes": {
+              "package_form": {
+                "value": [
+                  "box"
+                ],
+                "confidence": 0.0
+              },
+              "brand_logo": {
+                "value": null,
+                "confidence": 1.0
+              },
+              "size_category": {
+                "value": null,
+                "confidence": 0.0
+              }
+            },
+            "quality": {},
+            "negative_flags": {}
+          }
+        },
+        "meta": {
+          "run_id": "d37de3a7-ccd0-4820-90de-3c3da523ab6a",
+          "engine": "RuntimeEngine",
+          "version": "mvp-2.0",
+          "elapsed_ms": 32736.773,
+          "plan_id": "c1150d43-1b52-4e90-956e-d341d548457c",
+          "planner_model": "_StaticPlanFactory",
+          "object_name": "Package",
+          "template_path": "C:\\Users\\Administrator\\Documents\\Project\\MVP_Runtime\\resource\\Template.json",
+          "scene_pure_negative": false,
+          "executed_steps": [
+            "negative:gemini-2.0-flash",
+            "detect:yolo-world-v2-x",
+            "verify:gemini-2.0-flash",
+            "quality:opencv-heuristics",
+            "attribute:gemini-2.0-flash",
+            "negative:gemini-2.0-flash",
+            "merge:gemini-2.0-flash"
+          ],
+          "merge_adapter": "GeminiClient",
+          "preselection_dir": "C:\\Users\\Administrator\\Documents\\Project\\MVP_Runtime\\storage\\preselection\\d37de3a7-ccd0-4820-90de-3c3da523ab6a"
+        }
+      }
+    },
+    {
+      "image": "C:\\Users\\Administrator\\Documents\\Project\\MVP_Runtime\\resource\\package\\pos\\00ee3fa07f2925097db9fbffa1686b55.jpeg",
+      "annotation_result": {
+        "image": "C:\\Users\\Administrator\\Documents\\Project\\MVP_Runtime\\resource\\package\\pos\\00ee3fa07f2925097db9fbffa1686b55.jpeg",
+        "objects": [
+          {
+            "bbox": [
+              20.314430236816406,
+              319.9156494140625,
+              81.66617584228516,
+              383.07659912109375
+            ],
+            "category": "Package",
+            "attributes": {
+              "package_form": "box",
+              "size_category": "small"
+            },
+            "confidence": 0.57,
+            "status": "accepted"
+          }
+        ]
+      },
+      "runtime_trace": {
+        "steps": [
+          {
+            "step_id": "negative:gemini-2.0-flash"
+          },
+          {
+            "step_id": "detect:yolo-world-v2-x"
+          },
+          {
+            "step_id": "verify:gemini-2.0-flash"
+          },
+          {
+            "step_id": "quality:opencv-heuristics"
+          },
+          {
+            "step_id": "attribute:gemini-2.0-flash"
+          },
+          {
+            "step_id": "negative:gemini-2.0-flash"
+          },
+          {
+            "step_id": "merge:gemini-2.0-flash"
+          }
+        ],
+        "merge_reasoning": [
+          {
+            "step": "yolo_detection",
+            "input": "image crop",
+            "output": "obj_0  yolo=0.14  bbox=(20,320)-(82,383)",
+            "reasoning": "The YOLO detector found one candidate object and assigned it a confidence score of 0.14."
+          },
+          {
+            "step": "gemini_verification",
+            "input": "obj_0 bbox and image crop",
+            "output": "obj_0  ✓ ok  score=0.90  \"The image shows a container with a label, consistent with a package being hand-c\"",
+            "reasoning": "The verification model accepted the object as a package with a confidence of 0.90."
+          },
+          {
+            "step": "opencv_quality",
+            "input": "obj_0 bbox and image crop",
+            "output": "obj_0  normal — all attributes feasible",
+            "reasoning": "The quality check did not find any issues with the object."
+          },
+          {
+            "step": "gemini_semantic",
+            "input": "obj_0 bbox and image crop",
+            "output": "obj_0  package_form=['box'](0.90), brand_logo=None(1.00), size_category=small(0.90)",
+            "reasoning": "The semantic attributes model predicted the package form to be box, no brand logo, and size category to be small."
+          },
+          {
+            "step": "gemini_negative",
+            "input": "obj_0 bbox and image crop",
+            "output": "obj_0  no flags",
+            "reasoning": "The negative check model did not find any negative flags."
+          },
+          {
+            "step": "merge",
+            "input": "detection_confidence=0.14, verification_confidence=0.90, quality=normal, negative_flags=None",
+            "output": "is_positive=true, confidence=0.57",
+            "reasoning": "Both detector and verification models agreed that the object is a package and no negative flags were triggered. Therefore, the object is positive. The merge confidence is calculated as the average of detection and verification scores since they agree, giving more weight to verification as it is a more reliable signal: (0.14 + 0.90) / 2 = 0.52"
+          }
+        ],
+        "annotation_panel": {
+          "obj_0": {
+            "is_positive": true,
+            "negative_category": null,
+            "confidence": 0.57,
+            "detection_confidence": 0.14,
+            "verification_confidence": 0.9,
+            "merge_confidence": 0.57,
+            "attributes": {
+              "package_form": {
+                "value": "box",
+                "confidence": 0.9
+              },
+              "brand_logo": {
+                "value": null,
+                "confidence": 1.0
+              },
+              "size_category": {
+                "value": "small",
+                "confidence": 0.9
+              }
+            },
+            "quality": {},
+            "negative_flags": {}
+          }
+        },
+        "meta": {
+          "run_id": "f7b771cb-ff23-493e-8540-aecc3ef959f1",
+          "engine": "RuntimeEngine",
+          "version": "mvp-2.0",
+          "elapsed_ms": 28161.762,
+          "plan_id": "c1150d43-1b52-4e90-956e-d341d548457c",
+          "planner_model": "_StaticPlanFactory",
+          "object_name": "Package",
+          "template_path": "C:\\Users\\Administrator\\Documents\\Project\\MVP_Runtime\\resource\\Template.json",
+          "scene_pure_negative": false,
+          "executed_steps": [
+            "negative:gemini-2.0-flash",
+            "detect:yolo-world-v2-x",
+            "verify:gemini-2.0-flash",
+            "quality:opencv-heuristics",
+            "attribute:gemini-2.0-flash",
+            "negative:gemini-2.0-flash",
+            "merge:gemini-2.0-flash"
+          ],
+          "merge_adapter": "GeminiClient",
+          "preselection_dir": "C:\\Users\\Administrator\\Documents\\Project\\MVP_Runtime\\storage\\preselection\\f7b771cb-ff23-493e-8540-aecc3ef959f1"
+        }
+      }
+    }
+  ]
+}

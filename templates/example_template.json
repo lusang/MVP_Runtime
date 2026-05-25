@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "task": "pre_annotation_mvp",
+  "object": {
+    "category": "generic",
+    "notes": "Template `object` block is exposed to plugins as parsed_template.object"
+  },
+  "attributes": [
+    {
+      "handler": "opencv_attributes",
+      "key": "visual",
+      "params": { "detail": "mock" },
+      "enabled": true
+    },
+    {
+      "handler": "mock_simple",
+      "key": "debug",
+      "params": { "probe": true },
+      "enabled": true
+    }
+  ],
+  "labels": ["mock_object", "mock_object_2"],
+  "notes": "Top-level keys outside object/attributes are preserved in ParsedTemplate.extras"
+}

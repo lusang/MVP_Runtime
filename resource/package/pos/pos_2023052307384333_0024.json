@@ -1,0 +1,45 @@
+{
+  "dataset": "delivery",
+  "label": "pos",
+  "neg_category": "-",
+  "attributes": {
+    "algo_uniform": {
+      "has_target": true,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_vehicle": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_vest": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_package": {
+      "has_target": true,
+      "is_blurred": false,
+      "is_occluded": false
+    }
+  },
+  "scene": {
+    "priority": "P0",
+    "view": "doorbell",
+    "lighting": "day",
+    "distance": "near",
+    "is_corner": false
+  },
+  "meta": {
+    "source_file": "C:\\Users\\12490\\Desktop\\AItest\\code\\data\\lable\\images\\delivery\\pos\\pos_2023052307384333_0024.jpg",
+    "locked_by": null,
+    "locked_at": 0,
+    "updated_by": "User_rt6q",
+    "updated_at": "2026-04-30 11:20:06",
+    "data_source": "web_scraped",
+    "versions": [
+      "benchmark_2.0"
+    ]
+  }
+}

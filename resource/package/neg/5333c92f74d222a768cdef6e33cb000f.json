@@ -1,0 +1,46 @@
+{
+  "dataset": "delivery",
+  "label": "neg",
+  "neg_category": "blur_neg",
+  "attributes": {
+    "algo_uniform": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_vehicle": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_vest": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_package": {
+      "has_target": true,
+      "is_blurred": false,
+      "is_occluded": false
+    }
+  },
+  "scene": {
+    "priority": "P1",
+    "view": "doorbell",
+    "lighting": "low_light",
+    "distance": "near",
+    "is_corner": false
+  },
+  "meta": {
+    "versions": [
+      "v1.0.0",
+      "benchmark_2.0"
+    ],
+    "data_source": "purchased",
+    "source_file": "C:\\Users\\12490\\Desktop\\AItest\\code\\data\\lable\\images\\delivery\\neg\\5333c92f74d222a768cdef6e33cb000f.jpeg",
+    "locked_by": null,
+    "locked_at": 0,
+    "updated_by": "User_w4ul",
+    "updated_at": "2026-05-09 18:28:18"
+  }
+}

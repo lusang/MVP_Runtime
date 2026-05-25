@@ -1,0 +1,46 @@
+{
+  "dataset": "delivery",
+  "label": "neg",
+  "neg_category": "person_with_package",
+  "attributes": {
+    "algo_uniform": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_vehicle": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_vest": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_package": {
+      "has_target": true,
+      "is_blurred": false,
+      "is_occluded": true
+    }
+  },
+  "scene": {
+    "priority": "P0",
+    "view": "doorbell",
+    "lighting": "day",
+    "distance": "near",
+    "is_corner": false
+  },
+  "meta": {
+    "locked_at": 1778318066.7831428,
+    "locked_by": "User_w4ul",
+    "source_file": "",
+    "updated_at": "2026-04-28 11:42:31",
+    "updated_by": "User_3d37",
+    "versions": [
+      "v1.0.0",
+      "benchmark_2.0"
+    ],
+    "data_source": "purchased"
+  }
+}

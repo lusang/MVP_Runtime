@@ -1,0 +1,54 @@
+{
+  "template": {
+    "objects": [
+      {
+        "name": "替换为真实物体名称",
+        "description": "替换为真实描述",
+        "include": "替换为包含项",
+        "exclude": "替换为排除项",
+        "attributes": [
+          {
+            "name": "替换为属性名",
+            "type": "multi_select",
+            "options": ["选项1", "选项2"],
+            "description": "属性描述"
+          }
+        ],
+        "quality": {
+          "attributes": [
+            {
+              "name": "blur",
+              "type": "select",
+              "options": ["清晰", "轻微模糊", "重度模糊"],
+              "description": "图像模糊程度"
+            }
+          ]
+        },
+        "negative": {
+          "attributes": [
+            {
+              "name": "纯负样本",
+              "type": "boolean",
+              "options": [],
+              "description": "场景中完全没有目标物体"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "callback_url": "http://datahub:8000/api/annotation_callback",
+  "tasks": [
+    {
+      "task_id": "替换为真实的task_id",
+      "media_type": "image",
+      "frames": [
+        {
+          "frame_id": "替换为真实的frame_id",
+          "url": "file:///path/to/real/image.jpg",
+          "timestamp_ms": 0
+        }
+      ]
+    }
+  ]
+}

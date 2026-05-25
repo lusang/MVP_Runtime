@@ -1,0 +1,26 @@
+# Web framework & ASGI server
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+
+# Data validation (v2 API)
+pydantic>=2.9.0
+
+# Async file I/O helpers (optional but convenient for MVP I/O)
+aiofiles>=24.1.0
+
+# HTTP client for temp/test_run_annotation.py
+httpx>=0.27.0
+
+# Image crop for YOLO pre-selection (预选)
+Pillow>=10.0.0
+
+# Load config/.env at startup
+python-dotenv>=1.0.0
+
+# YOLO inference (Step 1); YOLO-World needs CLIP (install without replacing torch nightly):
+#   pip install --no-deps git+https://github.com/ultralytics/CLIP.git
+#   pip install ftfy
+ultralytics>=8.0.0
+
+# Gemini (Google AI) multimodal client
+google-genai>=1.0.0

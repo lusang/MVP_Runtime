@@ -1,0 +1,18 @@
+# Secrets
+config/.env
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Model weights (large binaries; use scripts/download_yolo_weights.py)
+weights/*.pt
+
+# Runtime artifacts
+storage/preselection/
+debug-ea8e9c.log
+temp/annotation_result.json
+temp/annotation_result_*.json

@@ -1,0 +1,45 @@
+{
+  "dataset": "delivery",
+  "label": "neg",
+  "neg_category": "person_with_package",
+  "attributes": {
+    "algo_uniform": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_vehicle": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_vest": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_package": {
+      "has_target": true,
+      "is_blurred": false,
+      "is_occluded": false
+    }
+  },
+  "scene": {
+    "priority": "P0",
+    "view": "doorbell",
+    "lighting": "day",
+    "distance": "near",
+    "is_corner": false
+  },
+  "meta": {
+    "source_file": "C:\\Users\\12490\\Desktop\\AItest\\code\\data\\lable\\images\\delivery\\neg\\neg_2024110205190081_0010.jpg",
+    "locked_by": null,
+    "locked_at": 0,
+    "updated_by": "User_d6u3",
+    "updated_at": "2026-04-28 21:16:16",
+    "data_source": "web_scraped",
+    "versions": [
+      "v1.0.0"
+    ]
+  }
+}

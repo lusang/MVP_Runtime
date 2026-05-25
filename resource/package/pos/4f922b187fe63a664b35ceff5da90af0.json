@@ -1,0 +1,46 @@
+{
+  "dataset": "delivery",
+  "label": "pos",
+  "neg_category": "",
+  "attributes": {
+    "algo_uniform": {
+      "has_target": true,
+      "is_blurred": true,
+      "is_occluded": false
+    },
+    "algo_vehicle": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_vest": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_package": {
+      "has_target": true,
+      "is_blurred": false,
+      "is_occluded": false
+    }
+  },
+  "scene": {
+    "priority": "P1",
+    "view": "doorbell",
+    "lighting": "day",
+    "distance": "far",
+    "is_corner": false
+  },
+  "meta": {
+    "locked_at": 0,
+    "locked_by": null,
+    "source_file": "",
+    "updated_at": "2026-04-28 15:18:49",
+    "updated_by": "User_3d37",
+    "versions": [
+      "v1.0.0",
+      "benchmark_2.0"
+    ],
+    "data_source": "purchased"
+  }
+}

@@ -1,0 +1,119 @@
+{
+  "objects": [
+    {
+      "name": "Package",
+      "description": "A container-like object used for transport, delivery, storage, or carrying. Typically has independent packaging structure and can be moved individually.",
+      "include": "- cardboard box - document envelope - plastic shipping bag - delivery bag - woven sack - hand-carried parcel - shipping box - mailer bag - poly mailer - paper envelope - bubble mailer - carton - packet",
+      "exclude": "- backpack worn on person - fixed trash bin - furniture cabinet - building structure - loose unpackaged items - suitcase - handbag - shopping bag carried by person",
+      "geometry": "bbox",
+      "attributes": [
+        {
+          "name": "package_form",
+          "description": "regular rectangular box / flat envelope / flexible bag / irregular shape / deformable soft packaging",
+          "type": "multi_select",
+          "options": [
+            "box",
+            "envelope",
+            "bag",
+            "irregular",
+            "soft_package"
+          ]
+        },
+        {
+          "name": "brand_logo",
+          "description": "visible logistics brand logo on package surface",
+          "type": "single_select",
+          "options": [
+            "amazon",
+            "fedex",
+            "ups",
+            "dhl",
+            "yamato",
+            "sagawa",
+            "generic_logistics"
+          ]
+        },
+        {
+          "name": "size_category",
+          "description": "relative size of the package",
+          "type": "single_select",
+          "options": [
+            "small",
+            "large",
+            "extra_large"
+          ]
+        }
+      ],
+      "quality": {
+        "description": "Attribute the cause of model failure in detection or classification",
+        "include": "Why missed detection? → heavy occlusion. Why misclassified? → blur. Why low recall? → tiny object + low light. Goal: make quality failures attributable.",
+        "exclude": "",
+        "geometry": "classification",
+        "attributes": [
+          {
+            "name": "occlusion",
+            "description": "none: target fully visible. partial: partially blocked but main structure still identifiable (occlusion < 50%). heavy: largely blocked, requires guesswork (occlusion > 50%, only corner visible, heavily overlapped with background).",
+            "type": "single_select",
+            "options": [
+              "none",
+              "partial",
+              "heavy"
+            ]
+          },
+          {
+            "name": "blur",
+            "description": "clear: sharp edges, normal recognition. slight: minor motion blur or compression blur, still easily recognizable. heavy: significantly blurred, requires guesswork (nighttime motion trails, severe defocus, video compression artifacts).",
+            "type": "single_select",
+            "options": [
+              "clear",
+              "slight",
+              "heavy"
+            ]
+          },
+          {
+            "name": "lighting",
+            "description": "normal: clearly visible, normal exposure. dim: dark with detail loss (nighttime, shadows, dim corridors). harsh: strong light affecting recognition (overexposure, backlight, glare, direct sunlight).",
+            "type": "single_select",
+            "options": [
+              "normal",
+              "dim",
+              "harsh"
+            ]
+          }
+        ]
+      },
+      "negative": {
+        "description": "Four categories of negative samples. When any negative flag is set, do NOT annotate this detection as a positive package.",
+        "include": "- Pure Negative - Hard Negative (most important) - Ambiguous (blurry negative) - Open-set Negative (out-of-distribution negative)",
+        "exclude": "",
+        "geometry": "classification",
+        "attributes": [
+          {
+            "name": "Pure Negative",
+            "description": "No package exists in the scene. Example: empty corridor, only people, only vehicles, furniture, garden, lawn.",
+            "type": "boolean",
+            "options": []
+          },
+          {
+            "name": "Hard Negative",
+            "description": "Visually similar to a package but actually is not. Typical examples: backpack, suitcase, storage bin, trash bag, shopping bag, laundry bag, toolbox, pet carrier, cooler box, pillow packaging, paper bag.",
+            "type": "boolean",
+            "options": []
+          },
+          {
+            "name": "Ambiguous",
+            "description": "Unclear even to humans. Example: distant blurry cardboard box, occluded plastic bag, dark object at night, half a shipping box, low-resolution target. Do not force a positive or negative label.",
+            "type": "boolean",
+            "options": []
+          },
+          {
+            "name": "Open-set Negative",
+            "description": "Completely unknown novel object. Example: oddly shaped packaging, new delivery robot container, foreign logistics bag, never-before-seen packaging form.",
+            "type": "boolean",
+            "options": []
+          }
+        ]
+      }
+    }
+  ]
+}

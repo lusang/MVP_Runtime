@@ -1,0 +1,46 @@
+{
+  "dataset": "delivery",
+  "label": "neg",
+  "neg_category": "blur_neg",
+  "attributes": {
+    "algo_uniform": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_vehicle": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_vest": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_package": {
+      "has_target": true,
+      "is_blurred": false,
+      "is_occluded": false
+    }
+  },
+  "scene": {
+    "priority": "P1",
+    "view": "doorbell",
+    "lighting": "day",
+    "distance": "near",
+    "is_corner": false
+  },
+  "meta": {
+    "locked_at": 1777344117.1285865,
+    "locked_by": "User_3d37",
+    "source_file": "lable/images/delivery/neg/neg_third_hnbx_package_theft_outside_home_0627_package58_0006.jpg",
+    "updated_at": "2026-04-28 10:36:40",
+    "updated_by": "User_hs0u",
+    "versions": [
+      "v1.0.0",
+      "benchmark_2.0"
+    ],
+    "data_source": "web_scraped"
+  }
+}

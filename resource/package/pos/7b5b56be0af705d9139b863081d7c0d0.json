@@ -1,0 +1,45 @@
+{
+  "dataset": "delivery",
+  "label": "pos",
+  "neg_category": "-",
+  "attributes": {
+    "algo_uniform": {
+      "has_target": true,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_vehicle": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_vest": {
+      "has_target": false,
+      "is_blurred": false,
+      "is_occluded": false
+    },
+    "algo_package": {
+      "has_target": true,
+      "is_blurred": false,
+      "is_occluded": false
+    }
+  },
+  "scene": {
+    "priority": "P0",
+    "view": "doorbell",
+    "lighting": "low_light",
+    "distance": "near",
+    "is_corner": false
+  },
+  "meta": {
+    "source_file": "C:\\Users\\12490\\Desktop\\AItest\\code\\data\\lable\\images\\delivery\\overseas_courier_private\\pos\\7b5b56be0af705d9139b863081d7c0d0.jpeg",
+    "locked_by": null,
+    "locked_at": 0,
+    "updated_by": "User_rt6q",
+    "updated_at": "2026-04-30 11:18:22",
+    "data_source": "purchased",
+    "versions": [
+      "benchmark_2.0"
+    ]
+  }
+}
