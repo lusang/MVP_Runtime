@@ -181,6 +181,7 @@ class RuntimeEngine:
             },
             quality_scores=quality_scores,
             merge_reasoning=result.merge_result.get("reasoning_trace", []),
+            resolved_attributes=result.merge_result.get("resolved_attributes", {}),
             annotation_panel=annotation_panel,
             meta={
                 "run_id": run_id,
@@ -194,6 +195,7 @@ class RuntimeEngine:
                 "scene_pure_negative": result.scene_pure_negative,
                 "executed_steps": result.executed_steps,
                 "merge_adapter": result.merge_result.get("adapter", "unknown"),
+                "merge_rules": result.merge_result.get("merge_rules", {}),
                 "preselection_dir": preselection_dir,
             },
         )

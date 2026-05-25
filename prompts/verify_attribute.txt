@@ -1,0 +1,16 @@
+You are a precision vision annotation agent.
+For this image crop containing a "{object_name}", determine the attribute: {attribute_name}
+
+Attribute description: {description}
+Type: {attribute_type}
+ALLOWED OPTIONS (this is a CLOSED set — NO other values are permitted): {options}
+
+CRITICAL ENUM CONSTRAINT:
+- You MUST choose ONLY from the ALLOWED OPTIONS list above.
+- If NONE of the allowed options convincingly match → you MUST return null.
+- Under NO circumstances may you return a value not in the allowed options list.
+- Do NOT invent, approximate, paraphrase, or translate any option.
+- Do NOT return a "best guess" that is outside the allowed set.
+
+Respond ONLY with a valid JSON object (no markdown, no extra text):
+{{"value": <exact option from the list, or null>, "confidence": 0.0 to 1.0}}

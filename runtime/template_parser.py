@@ -100,12 +100,15 @@ class TemplateParser:
             if not attr_name or not str(attr_name).strip():
                 raise ValueError(f"`{label}[{i}].name` is required")
             name = str(attr_name).strip()
+            raw_scope = item.get("analysis_scope", "crop")
+            analysis_scope: str = raw_scope if raw_scope in ("crop", "full_image") else "crop"
             params = {
                 "attribute_name": name,
                 "attribute_type": item.get("type", "unknown"),
                 "options": list(item.get("options") or []),
                 "description": str(item.get("description", "")),
                 "scope": scope,
+                "analysis_scope": analysis_scope,
             }
             try:
                 spec = TemplateAttributeSpec(
@@ -116,6 +119,7 @@ class TemplateParser:
                     handler=handler,
                     key=name,
                     scope=scope,
+                    analysis_scope=analysis_scope,
                     params=params,
                     enabled=True,
                 )

@@ -1,0 +1,718 @@
+{
+  "run_id": "df1d1b4c-ab9b-45af-8a04-11bef1233ecb",
+  "task_id": "ffea0498-4514-4879-bdaf-31d29bcecd30",
+  "status": "completed",
+  "frames": [
+    {
+      "frame_id": "ffea0498-4514-4879-bdaf-31d29bcecd30",
+      "status": "completed",
+      "annotation_result": {
+        "image": "C:/Users/Administrator/Documents/01_SECURITY_ASSETS/_imported/45e46d57f1a7407591a57214ed47ead0/neg/54c15091aa3cbe5d3835690b08e8a754.jpeg",
+        "objects": [
+          {
+            "bbox": [
+              16.0,
+              43.2,
+              144.0,
+              297.0
+            ],
+            "category": "objects",
+            "attributes": {
+              "object_type": [
+                "瓦楞纸箱"
+              ],
+              "is_package": false
+            },
+            "confidence": 0.995,
+            "status": "accepted"
+          },
+          {
+            "bbox": [
+              176.0,
+              64.8,
+              294.40000000000003,
+              351.0
+            ],
+            "category": "objects",
+            "attributes": {
+              "object_type": [
+                "瓦楞纸箱"
+              ],
+              "is_package": false
+            },
+            "confidence": 0.9,
+            "status": "accepted"
+          }
+        ]
+      },
+      "runtime_trace": {
+        "steps": [
+          {
+            "step_id": "detect:yolo-world-v2-x"
+          },
+          {
+            "step_id": "verify:gemini-2.0-flash"
+          },
+          {
+            "step_id": "quality:opencv-heuristics"
+          },
+          {
+            "step_id": "attribute:gemini-2.0-flash"
+          },
+          {
+            "step_id": "negative:gemini-2.0-flash"
+          },
+          {
+            "step_id": "merge:gemini-2.0-flash"
+          }
+        ],
+        "candidate_history": [
+          {
+            "object_id": "obj_0",
+            "detector_score": 0.91,
+            "bbox": {
+              "x1": 16.0,
+              "y1": 43.2,
+              "x2": 144.0,
+              "y2": 297.0
+            },
+            "crop_path": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\cd508461-a31c-4bb2-89bd-ec3bb3ee3f70\\candidate_0.jpg",
+            "exists": true,
+            "verify_score": 0.88,
+            "confidence": 0.895,
+            "detection_confidence": 0.91,
+            "verification_confidence": 0.88,
+            "merge_confidence": null,
+            "visibility": {
+              "background_clutter": {
+                "adapter": "OpenCVAnalyzerMock",
+                "channel": "quality",
+                "attribute_name": "background_clutter",
+                "attribute_type": "boolean",
+                "value": "none",
+                "confidence": 0.8,
+                "object_id": "obj_0",
+                "object_name": "objects",
+                "bbox_area": 39339.0,
+                "image_path": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\cd508461-a31c-4bb2-89bd-ec3bb3ee3f70\\candidate_0.jpg",
+                "description": "背景是否存在大量杂波干扰（如地面纹理复杂/多物体堆叠/光影斑驳/背景有类似纸箱形状的物体）\ntrue: 背景杂，模型可能分不清前景和背景\nfalse: 背景干净，目标突出"
+              }
+            },
+            "metrics": {},
+            "attribute_feasibility": {
+              "brand_logo": null,
+              "package_form": null,
+              "size_category": null
+            },
+            "missing_attributes": [],
+            "verification": {
+              "adapter": "GeminiVerifierMock",
+              "ok": true,
+              "score": 0.88,
+              "rationale": "Mock: bbox matches target object 'objects'.",
+              "object_name": "objects",
+              "image_path": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\cd508461-a31c-4bb2-89bd-ec3bb3ee3f70\\candidate_0.jpg",
+              "bbox": {
+                "x1": 0.0,
+                "y1": 0.0,
+                "x2": 141.0,
+                "y2": 279.0
+              },
+              "object_id": "obj_0",
+              "description": "门口场景中出现在地面/台阶/人手中，且形态上可能被模型误认为快递纸箱的物体。\n\n当前业务定义：package = 快递纸箱 (cardboard_box)。外卖袋、软袋、信封、水等均不属于包裹检测范畴。\n\n标注规则：\"如果你觉得模型可能把这个东西误认成快递纸箱，就标它。\"\n\n后处理说明（代码执行，标注者不关心）：\n- is_package=true → 正样本，参与 mAP 计算\n- is_package=false → Hard Negative（带 bbox + 类型），参与 FP 分析\n- 场景中没有任何 object → Pure Negative",
+              "gemini_env": {
+                "api_key_configured": true,
+                "model": "gemini-2.0-flash",
+                "api_base_set": false,
+                "force_mock": true
+              }
+            },
+            "attributes": {
+              "object_type": {
+                "adapter": "GeminiVerifierMock",
+                "scope": "semantic",
+                "attribute_name": "object_type",
+                "attribute_type": "multi_select",
+                "value": [
+                  "瓦楞纸箱"
+                ],
+                "confidence": 0.85,
+                "verified": true,
+                "object_name": "objects",
+                "object_id": "obj_0",
+                "image_path": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\cd508461-a31c-4bb2-89bd-ec3bb3ee3f70\\candidate_0.jpg",
+                "bbox": {
+                  "x1": 0.0,
+                  "y1": 0.0,
+                  "x2": 141.0,
+                  "y2": 279.0
+                },
+                "description": "这个物体客观来说是什么？"
+              },
+              "is_package": {
+                "adapter": "GeminiVerifierMock",
+                "scope": "semantic",
+                "attribute_name": "is_package",
+                "attribute_type": "boolean",
+                "value": false,
+                "confidence": 0.85,
+                "verified": true,
+                "object_name": "objects",
+                "object_id": "obj_0",
+                "image_path": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\cd508461-a31c-4bb2-89bd-ec3bb3ee3f70\\candidate_0.jpg",
+                "bbox": {
+                  "x1": 0.0,
+                  "y1": 0.0,
+                  "x2": 141.0,
+                  "y2": 279.0
+                },
+                "description": "这是不是真正的包裹/快递纸箱？\n\n== 是（true）==\n需要模型检测出来的快递纸箱。\n- 门口/地面/台阶上的瓦楞纸箱 → true\n- 正在被快递员投递/放下的纸箱 → true\n- 居民收件后暂时放在门口的纸箱 → true\n\n== 否（false）==\n像纸箱但实际不是，或业务上不算包裹。\n- 外卖袋/外卖纸袋 → false（业务定义：不算包裹）\n- 快递塑料软袋 (poly_mailer) → false（非纸箱形态）\n- 编织袋 → false（非纸箱形态）\n- 信封 → false（非纸箱形态）\n- 各类袋子（购物袋/垃圾袋/洗衣袋）→ false\n- 食品运输箱 → false（非快递用途）\n- 背包 → false（个人物品）\n- 收纳箱 → false（非快递用途）\n\n== 标注判断技巧 ==\n1. 这客观上是不是纸箱？→ 不是纸箱直接 false\n2. 是纸箱，但用途是不是快递？→ 如果看起来是快递纸箱，标 true\n3. 不确定是不是纸箱，但模型可能把它当纸箱？→ 标 false（作为 Hard Negative）"
+              }
+            },
+            "quality": {
+              "background_clutter": {
+                "adapter": "OpenCVAnalyzerMock",
+                "channel": "quality",
+                "attribute_name": "background_clutter",
+                "attribute_type": "boolean",
+                "value": "none",
+                "confidence": 0.8,
+                "object_id": "obj_0",
+                "object_name": "objects",
+                "bbox_area": 39339.0,
+                "image_path": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\cd508461-a31c-4bb2-89bd-ec3bb3ee3f70\\candidate_0.jpg",
+                "description": "背景是否存在大量杂波干扰（如地面纹理复杂/多物体堆叠/光影斑驳/背景有类似纸箱形状的物体）\ntrue: 背景杂，模型可能分不清前景和背景\nfalse: 背景干净，目标突出"
+              }
+            },
+            "negative_flags": {
+              "pure_negative": {
+                "adapter": "GeminiVerifierMock",
+                "scope": "negative",
+                "attribute_name": "pure_negative",
+                "attribute_type": "boolean",
+                "value": false,
+                "confidence": 0.85,
+                "verified": true,
+                "object_name": "objects",
+                "object_id": "obj_0",
+                "image_path": "C:/Users/Administrator/Documents/01_SECURITY_ASSETS/_imported/45e46d57f1a7407591a57214ed47ead0/neg/54c15091aa3cbe5d3835690b08e8a754.jpeg",
+                "bbox": {
+                  "x1": 16.0,
+                  "y1": 43.2,
+                  "x2": 144.0,
+                  "y2": 297.0
+                },
+                "description": "定义：场景中根本不存在 package。例如：空走廊、只有人、只有车、家具、花园、草坪。"
+              },
+              "ambiguous": {
+                "adapter": "GeminiVerifierMock",
+                "scope": "negative",
+                "attribute_name": "ambiguous",
+                "attribute_type": "boolean",
+                "value": false,
+                "confidence": 0.85,
+                "verified": true,
+                "object_name": "objects",
+                "object_id": "obj_0",
+                "image_path": "C:/Users/Administrator/Documents/01_SECURITY_ASSETS/_imported/45e46d57f1a7407591a57214ed47ead0/neg/54c15091aa3cbe5d3835690b08e8a754.jpeg",
+                "bbox": {
+                  "x1": 16.0,
+                  "y1": 43.2,
+                  "x2": 144.0,
+                  "y2": 297.0
+                },
+                "description": "例如：远处一个模糊纸箱、被遮挡的塑料袋、夜间黑色物体、半个快递箱、低分辨率目标，人都看不清。这种不要强行标正负。"
+              },
+              "open_set_negative": {
+                "adapter": "GeminiVerifierMock",
+                "scope": "negative",
+                "attribute_name": "open_set_negative",
+                "attribute_type": "boolean",
+                "value": false,
+                "confidence": 0.85,
+                "verified": true,
+                "object_name": "objects",
+                "object_id": "obj_0",
+                "image_path": "C:/Users/Administrator/Documents/01_SECURITY_ASSETS/_imported/45e46d57f1a7407591a57214ed47ead0/neg/54c15091aa3cbe5d3835690b08e8a754.jpeg",
+                "bbox": {
+                  "x1": 16.0,
+                  "y1": 43.2,
+                  "x2": 144.0,
+                  "y2": 297.0
+                },
+                "description": "定义：完全未知的新物体。例如：奇怪异形包装、新型配送机器人容器、国外特殊物流袋、从未见过的包装形式。"
+              }
+            },
+            "analysis_history": [
+              {
+                "step": "verify",
+                "decision": "confirmed, proceeding to quality"
+              },
+              {
+                "step": "quality",
+                "decision": "feasibility unknown for: brand_logo, package_form, size_category"
+              },
+              {
+                "step": "negative",
+                "decision": "no flags"
+              }
+            ]
+          },
+          {
+            "object_id": "obj_1",
+            "detector_score": 0.72,
+            "bbox": {
+              "x1": 176.0,
+              "y1": 64.8,
+              "x2": 294.40000000000003,
+              "y2": 351.0
+            },
+            "crop_path": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\cd508461-a31c-4bb2-89bd-ec3bb3ee3f70\\candidate_1.jpg",
+            "exists": true,
+            "verify_score": 0.88,
+            "confidence": 0.8,
+            "detection_confidence": 0.72,
+            "verification_confidence": 0.88,
+            "merge_confidence": null,
+            "visibility": {
+              "background_clutter": {
+                "adapter": "OpenCVAnalyzerMock",
+                "channel": "quality",
+                "attribute_name": "background_clutter",
+                "attribute_type": "boolean",
+                "value": "none",
+                "confidence": 0.8,
+                "object_id": "obj_1",
+                "object_name": "objects",
+                "bbox_area": 40950.0,
+                "image_path": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\cd508461-a31c-4bb2-89bd-ec3bb3ee3f70\\candidate_1.jpg",
+                "description": "背景是否存在大量杂波干扰（如地面纹理复杂/多物体堆叠/光影斑驳/背景有类似纸箱形状的物体）\ntrue: 背景杂，模型可能分不清前景和背景\nfalse: 背景干净，目标突出"
+              }
+            },
+            "metrics": {},
+            "attribute_feasibility": {
+              "brand_logo": null,
+              "package_form": null,
+              "size_category": null
+            },
+            "missing_attributes": [],
+            "verification": {
+              "adapter": "GeminiVerifierMock",
+              "ok": true,
+              "score": 0.88,
+              "rationale": "Mock: bbox matches target object 'objects'.",
+              "object_name": "objects",
+              "image_path": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\cd508461-a31c-4bb2-89bd-ec3bb3ee3f70\\candidate_1.jpg",
+              "bbox": {
+                "x1": 0.0,
+                "y1": 0.0,
+                "x2": 130.0,
+                "y2": 315.0
+              },
+              "object_id": "obj_1",
+              "description": "门口场景中出现在地面/台阶/人手中，且形态上可能被模型误认为快递纸箱的物体。\n\n当前业务定义：package = 快递纸箱 (cardboard_box)。外卖袋、软袋、信封、水等均不属于包裹检测范畴。\n\n标注规则：\"如果你觉得模型可能把这个东西误认成快递纸箱，就标它。\"\n\n后处理说明（代码执行，标注者不关心）：\n- is_package=true → 正样本，参与 mAP 计算\n- is_package=false → Hard Negative（带 bbox + 类型），参与 FP 分析\n- 场景中没有任何 object → Pure Negative",
+              "gemini_env": {
+                "api_key_configured": true,
+                "model": "gemini-2.0-flash",
+                "api_base_set": false,
+                "force_mock": true
+              }
+            },
+            "attributes": {
+              "object_type": {
+                "adapter": "GeminiVerifierMock",
+                "scope": "semantic",
+                "attribute_name": "object_type",
+                "attribute_type": "multi_select",
+                "value": [
+                  "瓦楞纸箱"
+                ],
+                "confidence": 0.85,
+                "verified": true,
+                "object_name": "objects",
+                "object_id": "obj_1",
+                "image_path": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\cd508461-a31c-4bb2-89bd-ec3bb3ee3f70\\candidate_1.jpg",
+                "bbox": {
+                  "x1": 0.0,
+                  "y1": 0.0,
+                  "x2": 130.0,
+                  "y2": 315.0
+                },
+                "description": "这个物体客观来说是什么？"
+              },
+              "is_package": {
+                "adapter": "GeminiVerifierMock",
+                "scope": "semantic",
+                "attribute_name": "is_package",
+                "attribute_type": "boolean",
+                "value": false,
+                "confidence": 0.85,
+                "verified": true,
+                "object_name": "objects",
+                "object_id": "obj_1",
+                "image_path": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\cd508461-a31c-4bb2-89bd-ec3bb3ee3f70\\candidate_1.jpg",
+                "bbox": {
+                  "x1": 0.0,
+                  "y1": 0.0,
+                  "x2": 130.0,
+                  "y2": 315.0
+                },
+                "description": "这是不是真正的包裹/快递纸箱？\n\n== 是（true）==\n需要模型检测出来的快递纸箱。\n- 门口/地面/台阶上的瓦楞纸箱 → true\n- 正在被快递员投递/放下的纸箱 → true\n- 居民收件后暂时放在门口的纸箱 → true\n\n== 否（false）==\n像纸箱但实际不是，或业务上不算包裹。\n- 外卖袋/外卖纸袋 → false（业务定义：不算包裹）\n- 快递塑料软袋 (poly_mailer) → false（非纸箱形态）\n- 编织袋 → false（非纸箱形态）\n- 信封 → false（非纸箱形态）\n- 各类袋子（购物袋/垃圾袋/洗衣袋）→ false\n- 食品运输箱 → false（非快递用途）\n- 背包 → false（个人物品）\n- 收纳箱 → false（非快递用途）\n\n== 标注判断技巧 ==\n1. 这客观上是不是纸箱？→ 不是纸箱直接 false\n2. 是纸箱，但用途是不是快递？→ 如果看起来是快递纸箱，标 true\n3. 不确定是不是纸箱，但模型可能把它当纸箱？→ 标 false（作为 Hard Negative）"
+              }
+            },
+            "quality": {
+              "background_clutter": {
+                "adapter": "OpenCVAnalyzerMock",
+                "channel": "quality",
+                "attribute_name": "background_clutter",
+                "attribute_type": "boolean",
+                "value": "none",
+                "confidence": 0.8,
+                "object_id": "obj_1",
+                "object_name": "objects",
+                "bbox_area": 40950.0,
+                "image_path": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\cd508461-a31c-4bb2-89bd-ec3bb3ee3f70\\candidate_1.jpg",
+                "description": "背景是否存在大量杂波干扰（如地面纹理复杂/多物体堆叠/光影斑驳/背景有类似纸箱形状的物体）\ntrue: 背景杂，模型可能分不清前景和背景\nfalse: 背景干净，目标突出"
+              }
+            },
+            "negative_flags": {
+              "pure_negative": {
+                "adapter": "GeminiVerifierMock",
+                "scope": "negative",
+                "attribute_name": "pure_negative",
+                "attribute_type": "boolean",
+                "value": false,
+                "confidence": 0.85,
+                "verified": true,
+                "object_name": "objects",
+                "object_id": "obj_1",
+                "image_path": "C:/Users/Administrator/Documents/01_SECURITY_ASSETS/_imported/45e46d57f1a7407591a57214ed47ead0/neg/54c15091aa3cbe5d3835690b08e8a754.jpeg",
+                "bbox": {
+                  "x1": 176.0,
+                  "y1": 64.8,
+                  "x2": 294.40000000000003,
+                  "y2": 351.0
+                },
+                "description": "定义：场景中根本不存在 package。例如：空走廊、只有人、只有车、家具、花园、草坪。"
+              },
+              "ambiguous": {
+                "adapter": "GeminiVerifierMock",
+                "scope": "negative",
+                "attribute_name": "ambiguous",
+                "attribute_type": "boolean",
+                "value": false,
+                "confidence": 0.85,
+                "verified": true,
+                "object_name": "objects",
+                "object_id": "obj_1",
+                "image_path": "C:/Users/Administrator/Documents/01_SECURITY_ASSETS/_imported/45e46d57f1a7407591a57214ed47ead0/neg/54c15091aa3cbe5d3835690b08e8a754.jpeg",
+                "bbox": {
+                  "x1": 176.0,
+                  "y1": 64.8,
+                  "x2": 294.40000000000003,
+                  "y2": 351.0
+                },
+                "description": "例如：远处一个模糊纸箱、被遮挡的塑料袋、夜间黑色物体、半个快递箱、低分辨率目标，人都看不清。这种不要强行标正负。"
+              },
+              "open_set_negative": {
+                "adapter": "GeminiVerifierMock",
+                "scope": "negative",
+                "attribute_name": "open_set_negative",
+                "attribute_type": "boolean",
+                "value": false,
+                "confidence": 0.85,
+                "verified": true,
+                "object_name": "objects",
+                "object_id": "obj_1",
+                "image_path": "C:/Users/Administrator/Documents/01_SECURITY_ASSETS/_imported/45e46d57f1a7407591a57214ed47ead0/neg/54c15091aa3cbe5d3835690b08e8a754.jpeg",
+                "bbox": {
+                  "x1": 176.0,
+                  "y1": 64.8,
+                  "x2": 294.40000000000003,
+                  "y2": 351.0
+                },
+                "description": "定义：完全未知的新物体。例如：奇怪异形包装、新型配送机器人容器、国外特殊物流袋、从未见过的包装形式。"
+              }
+            },
+            "analysis_history": [
+              {
+                "step": "verify",
+                "decision": "confirmed, proceeding to quality"
+              },
+              {
+                "step": "quality",
+                "decision": "feasibility unknown for: brand_logo, package_form, size_category"
+              },
+              {
+                "step": "negative",
+                "decision": "no flags"
+              }
+            ]
+          }
+        ],
+        "planner_decisions": {
+          "plan_id": "6e4845e7-2ff5-4ba4-a26f-8bc09ba2a4b9",
+          "planner_model": "_StaticPlanFactory",
+          "planner_version": "1.0",
+          "steps": [
+            {
+              "step": "detect",
+              "model_id": "yolo-world-v2-x",
+              "data_flow": "full_image",
+              "order": 0,
+              "per_candidate": false,
+              "scope": null,
+              "params": {}
+            },
+            {
+              "step": "verify",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "crop",
+              "order": 1,
+              "per_candidate": true,
+              "scope": null,
+              "params": {}
+            },
+            {
+              "step": "quality",
+              "model_id": "opencv-heuristics",
+              "data_flow": "crop",
+              "order": 2,
+              "per_candidate": true,
+              "scope": "quality",
+              "params": {}
+            },
+            {
+              "step": "attribute",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "crop",
+              "order": 3,
+              "per_candidate": true,
+              "scope": "semantic",
+              "params": {}
+            },
+            {
+              "step": "negative",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "full_image",
+              "order": 4,
+              "per_candidate": true,
+              "scope": "negative",
+              "params": {}
+            },
+            {
+              "step": "merge",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "full_image",
+              "order": 5,
+              "per_candidate": false,
+              "scope": null,
+              "params": {}
+            }
+          ],
+          "early_exit_rules": [],
+          "skip_conditions": [
+            {
+              "step": "attribute",
+              "condition": "all(not c.exists for c in candidates)",
+              "reason": "all candidates rejected by verification — no targets to assess"
+            }
+          ]
+        },
+        "quality_scores": [
+          {
+            "object_id": "obj_0",
+            "visibility": {
+              "background_clutter": {
+                "adapter": "OpenCVAnalyzerMock",
+                "channel": "quality",
+                "attribute_name": "background_clutter",
+                "attribute_type": "boolean",
+                "value": "none",
+                "confidence": 0.8,
+                "object_id": "obj_0",
+                "object_name": "objects",
+                "bbox_area": 39339.0,
+                "image_path": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\cd508461-a31c-4bb2-89bd-ec3bb3ee3f70\\candidate_0.jpg",
+                "description": "背景是否存在大量杂波干扰（如地面纹理复杂/多物体堆叠/光影斑驳/背景有类似纸箱形状的物体）\ntrue: 背景杂，模型可能分不清前景和背景\nfalse: 背景干净，目标突出"
+              }
+            },
+            "metrics": {},
+            "attribute_feasibility": {
+              "brand_logo": null,
+              "package_form": null,
+              "size_category": null
+            },
+            "missing_attributes": []
+          },
+          {
+            "object_id": "obj_1",
+            "visibility": {
+              "background_clutter": {
+                "adapter": "OpenCVAnalyzerMock",
+                "channel": "quality",
+                "attribute_name": "background_clutter",
+                "attribute_type": "boolean",
+                "value": "none",
+                "confidence": 0.8,
+                "object_id": "obj_1",
+                "object_name": "objects",
+                "bbox_area": 40950.0,
+                "image_path": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\cd508461-a31c-4bb2-89bd-ec3bb3ee3f70\\candidate_1.jpg",
+                "description": "背景是否存在大量杂波干扰（如地面纹理复杂/多物体堆叠/光影斑驳/背景有类似纸箱形状的物体）\ntrue: 背景杂，模型可能分不清前景和背景\nfalse: 背景干净，目标突出"
+              }
+            },
+            "metrics": {},
+            "attribute_feasibility": {
+              "brand_logo": null,
+              "package_form": null,
+              "size_category": null
+            },
+            "missing_attributes": []
+          }
+        ],
+        "merge_reasoning": [
+          {
+            "step": "yolo_detection",
+            "input": "Full image: C:/Users/Administrator/Documents/01_SECURITY_ASSETS/_imported/45e46d57f1a7407591a57214ed47ead0/neg/54c15091aa3cbe5d3835690b08e8a754.jpeg",
+            "output": "2 candidate(s) detected",
+            "reasoning": "YOLO-World v2 open-vocabulary detection for 'objects'."
+          },
+          {
+            "step": "gemini_verification",
+            "input": "Crop image for obj_0",
+            "output": "ok=True score=0.88",
+            "reasoning": "Mock: bbox matches target object 'objects'."
+          },
+          {
+            "step": "gemini_semantic",
+            "input": "Crop image for obj_0",
+            "output": "{'object_type': ['瓦楞纸箱'], 'is_package': False}",
+            "reasoning": "Semantic attributes extracted from crop."
+          },
+          {
+            "step": "opencv_quality",
+            "input": "Crop image for obj_0",
+            "output": "{'background_clutter': 'none'}",
+            "reasoning": "Quality metrics computed via OpenCV heuristics."
+          },
+          {
+            "step": "gemini_negative",
+            "input": "Full scene + bbox for obj_0",
+            "output": "{}",
+            "reasoning": "Negative-sample attributes checked on full scene."
+          },
+          {
+            "step": "gemini_verification",
+            "input": "Crop image for obj_1",
+            "output": "ok=True score=0.88",
+            "reasoning": "Mock: bbox matches target object 'objects'."
+          },
+          {
+            "step": "gemini_semantic",
+            "input": "Crop image for obj_1",
+            "output": "{'object_type': ['瓦楞纸箱'], 'is_package': False}",
+            "reasoning": "Semantic attributes extracted from crop."
+          },
+          {
+            "step": "opencv_quality",
+            "input": "Crop image for obj_1",
+            "output": "{'background_clutter': 'none'}",
+            "reasoning": "Quality metrics computed via OpenCV heuristics."
+          },
+          {
+            "step": "gemini_negative",
+            "input": "Full scene + bbox for obj_1",
+            "output": "{}",
+            "reasoning": "Negative-sample attributes checked on full scene."
+          },
+          {
+            "step": "merge",
+            "input": "2 candidate(s) with all intermediate results",
+            "output": "2 positive, 0 negative",
+            "reasoning": "Merge confidence computed independently with agreement/conflict signals: detector+verify agreement, attribute confidence quality, and negative flag penalties applied. Merge confidence is the final authority."
+          }
+        ],
+        "annotation_panel": {
+          "obj_0": {
+            "object_id": "obj_0",
+            "is_positive": true,
+            "negative_category": null,
+            "confidence": 0.995,
+            "detection_confidence": 0.91,
+            "verification_confidence": 0.88,
+            "merge_confidence": 0.995,
+            "attributes": {
+              "object_type": {
+                "value": [
+                  "瓦楞纸箱"
+                ],
+                "confidence": 0.85
+              },
+              "is_package": {
+                "value": false,
+                "confidence": 0.85
+              }
+            },
+            "quality": {
+              "background_clutter": {
+                "value": "none",
+                "confidence": 0.8
+              }
+            },
+            "negative_flags": {}
+          },
+          "obj_1": {
+            "object_id": "obj_1",
+            "is_positive": true,
+            "negative_category": null,
+            "confidence": 0.9,
+            "detection_confidence": 0.72,
+            "verification_confidence": 0.88,
+            "merge_confidence": 0.9,
+            "attributes": {
+              "object_type": {
+                "value": [
+                  "瓦楞纸箱"
+                ],
+                "confidence": 0.85
+              },
+              "is_package": {
+                "value": false,
+                "confidence": 0.85
+              }
+            },
+            "quality": {
+              "background_clutter": {
+                "value": "none",
+                "confidence": 0.8
+              }
+            },
+            "negative_flags": {}
+          }
+        },
+        "meta": {
+          "run_id": "cd508461-a31c-4bb2-89bd-ec3bb3ee3f70",
+          "engine": "RuntimeEngine",
+          "version": "mvp-2.0",
+          "elapsed_ms": 133.708,
+          "plan_id": "6e4845e7-2ff5-4ba4-a26f-8bc09ba2a4b9",
+          "planner_model": "_StaticPlanFactory",
+          "object_name": "objects",
+          "template_path": "C:/Users/Administrator/Documents/01_SECURITY_ASSETS/_imported/45e46d57f1a7407591a57214ed47ead0/neg/54c15091aa3cbe5d3835690b08e8a754.jpeg",
+          "scene_pure_negative": false,
+          "executed_steps": [
+            "detect:yolo-world-v2-x",
+            "verify:gemini-2.0-flash",
+            "quality:opencv-heuristics",
+            "attribute:gemini-2.0-flash",
+            "negative:gemini-2.0-flash",
+            "merge:gemini-2.0-flash"
+          ],
+          "merge_adapter": "GeminiMergerMock",
+          "preselection_dir": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\cd508461-a31c-4bb2-89bd-ec3bb3ee3f70"
+        }
+      }
+    }
+  ]
+}

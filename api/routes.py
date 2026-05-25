@@ -3,7 +3,10 @@ HTTP interface — kept free of pipeline logic (only wiring + validation).
 """
 
 import asyncio
+import json
 import uuid
+from datetime import datetime
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -63,6 +66,9 @@ async def run_annotation_async(
     Results are POSTed back to ``callback_url`` once per task via the configured
     retry strategy (see API_INTEGRATION.md §2.3).
     """
+    # Capture incoming request for test fixtures (dev only)
+    _save_incoming_fixture(body)
+
     if not body.tasks:
         raise HTTPException(status_code=400, detail="tasks list must not be empty")
     if not body.callback_url:
@@ -85,3 +91,21 @@ async def run_annotation_async(
         status="accepted",
         task_count=len(body.tasks),
     )
+
+
+def _save_incoming_fixture(body: AsyncAnnotationRequest) -> None:
+    """Save incoming request JSON to test/fixtures/ for replay later.
+
+    Only writes when the fixtures directory exists (dev mode).
+    Each request gets a unique timestamped file.
+    """
+    fixtures_dir = Path(__file__).resolve().parent.parent / "test" / "fixtures"
+    if not fixtures_dir.is_dir():
+        print("[fixture] fixtures dir not found, skipping")
+        return
+    data = body.model_dump()
+    ts = datetime.now().strftime("%H%M%S")
+    task_count = len(data.get("tasks", []))
+    path = fixtures_dir / f"request_{ts}_{task_count}tasks.json"
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"[fixture] saved {task_count} tasks to {path}")

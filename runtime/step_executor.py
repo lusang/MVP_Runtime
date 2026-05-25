@@ -14,6 +14,7 @@ from handlers.verification_handler import VerificationHandler
 from models.gemini_merger import GeminiMerger
 from models.gemini_verifier import GeminiVerifier
 from models.yolo_detector import YOLODetector
+from runtime.nms import apply_nms
 from runtime.performance_tracker import PerformanceTracker
 from schemas.candidate_state import CandidateState
 from schemas.feasibility import FeasibilityRule, build_feasibility_rules
@@ -123,6 +124,8 @@ class StepExecutor:
     ) -> None:
         if step.step == "detect":
             await self._run_detect(step, ctx, image_path, parsed, run_id)
+        elif step.step == "nms":
+            self._run_nms(step, ctx)
         elif step.step == "verify":
             await self._run_verify(step, ctx, image_path, parsed, run_id)
         elif step.step == "quality":
@@ -133,6 +136,27 @@ class StepExecutor:
             await self._run_negative(step, ctx, image_path, parsed, run_id)
         elif step.step == "merge":
             await self._run_merge(step, ctx, image_path, parsed, run_id)
+
+    # ── nms ─────────────────────────────────────────────────────────
+
+    def _run_nms(
+        self,
+        step: PlanStep,
+        ctx: _ExecutionContext,
+    ) -> None:
+        label = f"{step.step}:{step.model_id}"
+        iou_threshold = float(step.params.get("iou_threshold", 0.5))
+        before = sum(1 for c in ctx.candidates if c.exists)
+        apply_nms(ctx.candidates, iou_threshold=iou_threshold)
+
+        after = sum(1 for c in ctx.candidates if c.exists)
+        suppressed = before - after
+        _log(ctx, label, f"NMS (IoU ≥ {iou_threshold})")
+        if suppressed:
+            _log(ctx, None, f"    {suppressed} candidate(s) suppressed")
+        else:
+            _log(ctx, None, f"    0 candidates suppressed")
+        _log(ctx, None, "")
 
     # ── detect ──────────────────────────────────────────────────────
 
@@ -188,6 +212,11 @@ class StepExecutor:
         label = f"{step.step}:{step.model_id}"
         _log(ctx, label, "VERIFICATION")
         for c in ctx.candidates:
+            if not c.exists:
+                c.record("verify", "skipped — NMS suppressed")
+                _log(ctx, None, f"    · {c.object_id}  skipped (NMS suppressed)")
+                continue
+
             verification = await self._verification_handler.verify_object(
                 image_path=c.analysis_path,
                 bbox=c.analysis_bbox,
@@ -269,8 +298,18 @@ class StepExecutor:
         parsed: ParsedTaskSpec,
         run_id: str,
     ) -> None:
+        from schemas.pipeline_plan import DataFlow
+
         label = f"{step.step}:{step.model_id}"
-        _log(ctx, label, "SEMANTIC ATTRIBUTES")
+        is_full = step.data_flow == DataFlow.FULL
+        _log(ctx, label, f"SEMANTIC ATTRIBUTES ({'full_image' if is_full else 'crop'})")
+
+        # If step specifies attribute_keys, only assess those
+        include_keys: frozenset[str] | None = None
+        step_keys = step.params.get("attribute_keys")
+        if step_keys:
+            include_keys = frozenset(step_keys)
+
         for c in ctx.candidates:
             if not c.exists:
                 c.record("semantic", "skipped — object does not exist")
@@ -286,16 +325,23 @@ class StepExecutor:
                     f"assessing feasible attributes; skipping {', '.join(c.missing_attributes)}",
                 )
 
+            # Route image/bbox by data_flow:
+            #   CROP  → use the detection crop (analysis_path / analysis_bbox)
+            #   FULL  → use the original full image + original bbox
+            effective_image = c.analysis_path if not is_full else image_path
+            effective_bbox = c.analysis_bbox if not is_full else c.bbox
+
             if self._attribute_handler:
                 new_stage = await self._attribute_handler.analyze_by_scopes(
-                    image_path=c.analysis_path,
-                    bbox=c.analysis_bbox,
+                    image_path=effective_image,
+                    bbox=effective_bbox,
                     parsed=parsed,
                     object_id=c.object_id,
                     scopes={"semantic"},
                     skip_keys=skip_keys,
+                    include_keys=include_keys,
                 )
-                c.attributes = new_stage.attributes
+                c.attributes.update(new_stage.attributes)
 
             # Mark infeasible attributes as skipped
             for key in c.missing_attributes:
@@ -355,6 +401,10 @@ class StepExecutor:
                 skip_keys = frozenset({pure_neg_spec.key})
 
         for c in ctx.candidates:
+            if not c.exists:
+                c.record("negative", "skipped — NMS suppressed")
+                _log(ctx, None, f"    · {c.object_id}  skipped (NMS suppressed)")
+                continue
             if self._attribute_handler:
                 new_stage = await self._attribute_handler.analyze_by_scopes(
                     image_path=c.analysis_path,

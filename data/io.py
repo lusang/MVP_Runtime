@@ -65,6 +65,10 @@ class RuntimeTrace(BaseModel):
         default_factory=list,
         description="Reasoning traces from the merge/audit step.",
     )
+    resolved_attributes: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Conflict-resolved attributes across positive candidates (highest confidence per key).",
+    )
     annotation_panel: dict[str, Any] | None = Field(
         default=None,
         description="Per-object merge panels keyed by object_id (raw merge output before ObjectStateBuilder).",

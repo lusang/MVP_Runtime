@@ -1,0 +1,8 @@
+{
+    "weights": {
+        "detector": 0.3,
+        "verifier": 0.7
+    },
+    "attribute_confidence_threshold": 0.3,
+    "nms_iou_threshold": 0.5
+}

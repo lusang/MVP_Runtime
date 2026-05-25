@@ -1,0 +1,144 @@
+{
+  "run_id": "ae9b5208-30f5-4f4e-9ac9-06ebeb295b93",
+  "task_id": "fe53a8b7-b742-48b7-bed5-b6aa4c51ef11",
+  "status": "completed",
+  "frames": [
+    {
+      "frame_id": "fe53a8b7-b742-48b7-bed5-b6aa4c51ef11",
+      "status": "completed",
+      "annotation_result": {
+        "image": "C:/Users/Administrator/Documents/01_SECURITY_ASSETS/lable/images/delivery/pos/pos_2023092107142167_0001.jpg",
+        "objects": []
+      },
+      "runtime_trace": {
+        "steps": [
+          {
+            "step_id": "detect:yolo-world-v2-x"
+          },
+          {
+            "step_id": "verify:gemini-2.0-flash"
+          },
+          {
+            "step_id": "quality:opencv-heuristics"
+          },
+          {
+            "step_id": "attribute:gemini-2.0-flash"
+          },
+          {
+            "step_id": "negative:gemini-2.0-flash"
+          },
+          {
+            "step_id": "merge:gemini-2.0-flash"
+          }
+        ],
+        "candidate_history": [],
+        "planner_decisions": {
+          "plan_id": "102f9691-0f81-4159-aa26-eff017e6c069",
+          "planner_model": "_StaticPlanFactory",
+          "planner_version": "1.0",
+          "steps": [
+            {
+              "step": "detect",
+              "model_id": "yolo-world-v2-x",
+              "data_flow": "full_image",
+              "order": 0,
+              "per_candidate": false,
+              "scope": null,
+              "params": {}
+            },
+            {
+              "step": "verify",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "crop",
+              "order": 1,
+              "per_candidate": true,
+              "scope": null,
+              "params": {}
+            },
+            {
+              "step": "quality",
+              "model_id": "opencv-heuristics",
+              "data_flow": "crop",
+              "order": 2,
+              "per_candidate": true,
+              "scope": "quality",
+              "params": {}
+            },
+            {
+              "step": "attribute",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "crop",
+              "order": 3,
+              "per_candidate": true,
+              "scope": "semantic",
+              "params": {}
+            },
+            {
+              "step": "negative",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "full_image",
+              "order": 4,
+              "per_candidate": true,
+              "scope": "negative",
+              "params": {}
+            },
+            {
+              "step": "merge",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "full_image",
+              "order": 5,
+              "per_candidate": false,
+              "scope": null,
+              "params": {}
+            }
+          ],
+          "early_exit_rules": [],
+          "skip_conditions": [
+            {
+              "step": "attribute",
+              "condition": "all(not c.exists for c in candidates)",
+              "reason": "all candidates rejected by verification — no targets to assess"
+            }
+          ]
+        },
+        "quality_scores": [],
+        "merge_reasoning": [
+          {
+            "step": "yolo_detection",
+            "input": "Full image: C:/Users/Administrator/Documents/01_SECURITY_ASSETS/lable/images/delivery/pos/pos_2023092107142167_0001.jpg",
+            "output": "0 candidate(s) detected",
+            "reasoning": "YOLO-World v2 open-vocabulary detection for 'objects'."
+          },
+          {
+            "step": "merge",
+            "input": "0 candidate(s) with all intermediate results",
+            "output": "0 positive, 0 negative",
+            "reasoning": "Merge confidence computed independently with agreement/conflict signals: detector+verify agreement, attribute confidence quality, and negative flag penalties applied. Merge confidence is the final authority."
+          }
+        ],
+        "annotation_panel": null,
+        "meta": {
+          "run_id": "a4b535d1-5022-40d7-b191-19e9ea35b2c4",
+          "engine": "RuntimeEngine",
+          "version": "mvp-2.0",
+          "elapsed_ms": 110.211,
+          "plan_id": "102f9691-0f81-4159-aa26-eff017e6c069",
+          "planner_model": "_StaticPlanFactory",
+          "object_name": "objects",
+          "template_path": "C:/Users/Administrator/Documents/01_SECURITY_ASSETS/lable/images/delivery/pos/pos_2023092107142167_0001.jpg",
+          "scene_pure_negative": false,
+          "executed_steps": [
+            "detect:yolo-world-v2-x",
+            "verify:gemini-2.0-flash",
+            "quality:opencv-heuristics",
+            "attribute:gemini-2.0-flash",
+            "negative:gemini-2.0-flash",
+            "merge:gemini-2.0-flash"
+          ],
+          "merge_adapter": "GeminiMergerMock",
+          "preselection_dir": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\a4b535d1-5022-40d7-b191-19e9ea35b2c4"
+        }
+      }
+    }
+  ]
+}

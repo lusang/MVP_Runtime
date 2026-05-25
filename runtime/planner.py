@@ -1,4 +1,4 @@
-"""
+﻿"""
 Planner — Gemini-driven pipeline strategy that outputs a PipelinePlan.
 
 When MVP_DISABLE_PLANNER=1 or on failure, falls back to _StaticPlanFactory
@@ -17,6 +17,7 @@ from typing import Any
 
 from schemas.pipeline_plan import DataFlow, EarlyExitRule, PipelinePlan, PlanStep, SkipCondition
 from schemas.template_spec import HANDLER_BY_SCOPE, ParsedTaskSpec
+from runtime.prompt_manager import PromptManager
 
 
 def _planner_disabled() -> bool:
@@ -71,7 +72,7 @@ Negative attributes:
    - Skip per-candidate Pure Negative when scene check already ran: condition="scene_pure_negative"
    - Skip semantic step when ALL candidates were rejected by verification: condition="all(not c.exists for c in candidates)"
    - Skip specific attributes when quality makes them infeasible (the executor handles this via missing_attributes per candidate).
-10. Order steps by: scene-check (if any) → detect → verify → quality → semantic → negative → merge. Quality MUST come before semantic!
+10. Order steps by: scene-check (if any) → detect → nms → verify → quality → semantic → negative → merge. Quality MUST come before semantic!
 11. Use historical performance to prefer models with higher success_rate and lower latency.
 12. If no historical data exists for a model, use its estimated_latency_ms and cost_tier to decide.
 13. Do NOT add early_exit_rules for empty detections — the executor handles empty-candidate pipelines gracefully.
@@ -199,7 +200,8 @@ class Planner:
         negative_attrs = _format_attrs(parsed.negative_attributes)
         model = _planner_model()
 
-        prompt = _PLANNER_PROMPT.format(
+        prompt_template = PromptManager.load("planner", default=_PLANNER_PROMPT)
+        prompt = prompt_template.format(
             object_name=parsed.object_name,
             description=parsed.description or "N/A",
             include=parsed.include or "N/A",
@@ -279,7 +281,18 @@ class _StaticPlanFactory:
         ))
         order += 1
 
-        # Step 2: Verification (per candidate)
+        # Step 2: Non-Maximum Suppression (deterministic overlap removal)
+        steps.append(PlanStep(
+            step="nms",
+            model_id="rule-engine",
+            data_flow=DataFlow.FULL,
+            order=order,
+            per_candidate=False,
+            params={"iou_threshold": 0.5},
+        ))
+        order += 1
+
+        # Step 3: Verification (per candidate)
         steps.append(PlanStep(
             step="verify",
             model_id="gemini-2.0-flash",
@@ -296,26 +309,64 @@ class _StaticPlanFactory:
             enabled = [a for a in scope_attrs if a.enabled]
             if not enabled:
                 continue
+
             if scope == "semantic":
                 model_id = "gemini-2.0-flash"
                 step_type = "attribute"
+
+                # Split semantic attributes by analysis_scope:
+                # crop-scope → assessed on YOLO crop; full_image-scope → assessed on full scene
+                crop_keys = frozenset(a.key for a in enabled if a.analysis_scope == "crop")
+                full_keys = frozenset(a.key for a in enabled if a.analysis_scope == "full_image")
+
+                if crop_keys:
+                    steps.append(PlanStep(
+                        step=step_type,
+                        model_id=model_id,
+                        data_flow=DataFlow.CROP,
+                        order=order,
+                        per_candidate=True,
+                        scope=scope,
+                        params={"attribute_keys": list(crop_keys)},
+                    ))
+                    order += 1
+                if full_keys:
+                    steps.append(PlanStep(
+                        step=step_type,
+                        model_id=model_id,
+                        data_flow=DataFlow.FULL,
+                        order=order,
+                        per_candidate=True,
+                        scope=scope,
+                        params={"attribute_keys": list(full_keys)},
+                    ))
+                    order += 1
             elif scope == "quality":
                 model_id = "opencv-heuristics"
                 step_type = "quality"
-            else:
+                data_flow = DataFlow.CROP
+                steps.append(PlanStep(
+                    step=step_type,
+                    model_id=model_id,
+                    data_flow=data_flow,
+                    order=order,
+                    per_candidate=True,
+                    scope=scope,
+                ))
+                order += 1
+            else:  # negative
                 model_id = "gemini-2.0-flash"
                 step_type = "negative"
-
-            data_flow = DataFlow.FULL if scope == "negative" else DataFlow.CROP
-            steps.append(PlanStep(
-                step=step_type,
-                model_id=model_id,
-                data_flow=data_flow,
-                order=order,
-                per_candidate=True,
-                scope=scope,
-            ))
-            order += 1
+                data_flow = DataFlow.FULL
+                steps.append(PlanStep(
+                    step=step_type,
+                    model_id=model_id,
+                    data_flow=data_flow,
+                    order=order,
+                    per_candidate=True,
+                    scope=scope,
+                ))
+                order += 1
 
         # Last step: Merge
         steps.append(PlanStep(

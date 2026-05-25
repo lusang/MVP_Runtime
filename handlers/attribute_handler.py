@@ -43,6 +43,7 @@ class AttributeHandler:
         full_image_path: str | None = None,
         full_bbox: BBox | None = None,
         skip_keys: frozenset[str] | None = None,
+        include_keys: frozenset[str] | None = None,
         scopes: set[str] | None = None,
     ) -> AttributeStageResult:
         result = AttributeStageResult()
@@ -58,6 +59,8 @@ class AttributeHandler:
             if scopes is not None and spec.scope not in scopes:
                 continue
             if skip_keys and spec.key in skip_keys:
+                continue
+            if include_keys is not None and spec.key not in include_keys:
                 continue
 
             # Negative-scope plugins receive the FULL image + original bbox for context

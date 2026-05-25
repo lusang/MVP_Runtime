@@ -31,6 +31,10 @@ class TemplateAttributeSpec(BaseModel):
     scope: AttributeScope
     params: dict[str, Any] = Field(default_factory=dict)
     enabled: bool = Field(default=True)
+    analysis_scope: Literal["crop", "full_image"] = Field(
+        default="crop",
+        description="crop=assess within detection crop; full_image=needs full-scene context (e.g. background, person behavior).",
+    )
     quality_requirements: dict[str, Any] | None = Field(
         default=None,
         description="Per-attribute quality thresholds (max_occlusion, max_blur, max_lighting_issue).",

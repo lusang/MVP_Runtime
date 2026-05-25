@@ -13,7 +13,10 @@ import re
 from pathlib import Path
 from typing import Any
 
+import backoff
+
 from debug_log import agent_log
+from runtime.prompt_manager import PromptManager
 
 
 def _api_key() -> str:
@@ -275,10 +278,25 @@ def _validate_attribute_value(
 class GeminiClient:
     """Real Gemini multimodal client. Raises RuntimeError if API key is missing."""
 
-    def __init__(self) -> None:
+    def __init__(self, tracer: Any | None = None) -> None:
         self._api_key = _api_key()
         self._model_id = _model_id()
         self._timeout = _timeout_sec()
+        self._tracer = tracer
+
+    def _trace(self, run_id: str, step_name: str, prompt: str, response: str) -> None:
+        """Send observation to tracer if available."""
+        if self._tracer is not None and hasattr(self._tracer, "observe"):
+            try:
+                self._tracer.observe(
+                    run_id=run_id,
+                    step_name=step_name,
+                    model=self._model_id,
+                    prompt=prompt,
+                    response=response,
+                )
+            except Exception:
+                pass  # tracer must never break the pipeline
 
     async def verify_object(
         self,
@@ -291,7 +309,8 @@ class GeminiClient:
         object_id: str,
         run_id: str = "",
     ) -> dict[str, Any]:
-        prompt = _VERIFY_OBJECT_PROMPT.format(
+        prompt = PromptManager.load("verify_object", default=_VERIFY_OBJECT_PROMPT)
+        prompt = prompt.format(
             object_name=object_name,
             description=description,
             include=include or "N/A",
@@ -303,6 +322,7 @@ class GeminiClient:
                 _gemini_generate, self._model_id, prompt, image_path, self._timeout
             )
             parsed = _extract_json(raw)
+            self._trace(run_id, "verify_object", prompt, raw)
             agent_log(
                 hypothesis_id="H8",
                 location="models/gemini_client.py:verify_object",
@@ -361,8 +381,10 @@ class GeminiClient:
         object_id: str,
         run_id: str = "",
     ) -> dict[str, Any]:
-        template = _VERIFY_NEGATIVE_ATTRIBUTE_PROMPT if scope == "negative" else _VERIFY_ATTRIBUTE_PROMPT
-        prompt = template.format(
+        template_name = "verify_negative_attribute" if scope == "negative" else "verify_attribute"
+        default_prompt = _VERIFY_NEGATIVE_ATTRIBUTE_PROMPT if scope == "negative" else _VERIFY_ATTRIBUTE_PROMPT
+        prompt = PromptManager.load(template_name, default=default_prompt)
+        prompt = prompt.format(
             object_name=object_name,
             attribute_name=attribute_name,
             description=description or "N/A",
@@ -383,6 +405,7 @@ class GeminiClient:
                 attribute_name=attribute_name,
                 run_id=run_id,
             )
+            self._trace(run_id, f"verify_attribute:{attribute_name}", prompt, raw)
             agent_log(
                 hypothesis_id="H8",
                 location="models/gemini_client.py:verify_attribute",
@@ -454,7 +477,8 @@ class GeminiClient:
         exclude: str,
         run_id: str = "",
     ) -> dict[str, Any]:
-        prompt = _VERIFY_SCENE_NEGATIVE_PROMPT.format(
+        prompt = PromptManager.load("verify_scene_negative", default=_VERIFY_SCENE_NEGATIVE_PROMPT)
+        prompt = prompt.format(
             object_name=object_name,
             description=description,
             include=include or "N/A",
@@ -466,6 +490,7 @@ class GeminiClient:
             )
             parsed = _extract_json(raw)
             has_obj = bool(parsed.get("has_object", True))
+            self._trace(run_id, "verify_scene_pure_negative", prompt, raw)
             agent_log(
                 hypothesis_id="H8",
                 location="models/gemini_client.py:verify_scene_pure_negative",
@@ -512,7 +537,8 @@ class GeminiClient:
         execution_log: str,
         run_id: str = "",
     ) -> dict[str, Any]:
-        prompt = _MERGE_PROMPT.format(
+        prompt = PromptManager.load("merge", default=_MERGE_PROMPT)
+        prompt = prompt.format(
             object_name=object_name,
             description=description,
             include=include or "N/A",
@@ -524,6 +550,7 @@ class GeminiClient:
                 _gemini_generate, self._model_id, prompt, image_path, self._timeout
             )
             parsed = _extract_json(raw)
+            self._trace(run_id, "generate_merge", prompt, raw)
             agent_log(
                 hypothesis_id="H8",
                 location="models/gemini_client.py:generate_merge",
@@ -553,16 +580,52 @@ class GeminiClient:
             }
 
 
+# ── cached client + retry ────────────────────────────────────────────
+
+_client_cache: dict[str, Any] = {}
+
+
+def _get_genai_client(api_key: str, timeout_sec: int) -> Any:
+    """Return a cached genai.Client, creating one if necessary."""
+    cache_key = f"{api_key[:8]}@{timeout_sec}"
+    if cache_key not in _client_cache:
+        from google import genai
+        _client_cache[cache_key] = genai.Client(
+            api_key=api_key,
+            http_options={"timeout": timeout_sec * 1000},
+        )
+    return _client_cache[cache_key]
+
+
+def _is_retryable(exc: Exception) -> bool:
+    """True for transient errors: 5xx, 429 (rate limit), or network errors."""
+    from google.genai import errors as gemini_errors
+
+    if isinstance(exc, gemini_errors.ServerError):
+        return True
+    if isinstance(exc, gemini_errors.APIError):
+        return getattr(exc, "code", 0) in (429, 500, 502, 503)
+    if isinstance(exc, (ConnectionError, TimeoutError)):
+        return True
+    return False
+
+
+@backoff.on_exception(
+    backoff.expo,
+    Exception,
+    max_tries=3,
+    max_time=60.0,
+    giveup=lambda exc: not _is_retryable(exc),
+)
 def _gemini_generate(
     model_id: str,
     prompt: str,
     image_path: str,
     timeout_sec: int,
 ) -> str:
-    """Synchronous call to google-genai SDK. Runs in a thread."""
-    from google import genai
-
-    client = genai.Client(api_key=_api_key(), http_options={"timeout": timeout_sec * 1000})
+    """Synchronous call to google-genai SDK with retry support."""
+    api_key = _api_key()
+    client = _get_genai_client(api_key, timeout_sec)
 
     image_bytes = _read_image_bytes(image_path)
     contents = [

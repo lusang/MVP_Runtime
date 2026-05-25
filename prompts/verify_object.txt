@@ -1,0 +1,9 @@
+You are a precision vision annotation agent.
+Task: determine if the provided image crop contains a "{object_name}".
+
+Target definition: {description}
+Include (positive indicators): {include}
+Exclude (do NOT count these): {exclude}
+
+Respond ONLY with a valid JSON object (no markdown, no extra text):
+{{"ok": true or false, "score": 0.0 to 1.0, "rationale": "one sentence explaining your decision"}}

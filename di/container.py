@@ -4,6 +4,8 @@ Application composition root — wires adapters, registries, and `RuntimeEngine`
 
 from __future__ import annotations
 
+from typing import Any
+
 from dataclasses import dataclass
 
 from handlers.attribute_handler import AttributeHandler
@@ -26,6 +28,7 @@ from runtime.template_parser import TemplateParser
 class AppContainer:
     attribute_registry: AttributeHandlerRegistry
     runtime_engine: RuntimeEngine
+    tracer: Any = None
 
 
 def build_default_attribute_registry(
@@ -42,8 +45,11 @@ def build_default_attribute_registry(
     return registry
 
 
-def build_container() -> AppContainer:
-    verifier = GeminiVerifier()
+def build_container(*, tracer: Any = None) -> AppContainer:
+    from runtime.tracer import GeminiTracer
+
+    effective_tracer = tracer if tracer is not None else GeminiTracer()
+    verifier = GeminiVerifier(tracer=effective_tracer)
     analyzer = OpenCVAnalyzer()
     registry = build_default_attribute_registry(verifier=verifier, analyzer=analyzer)
     tracker = PerformanceTracker()
@@ -56,11 +62,15 @@ def build_container() -> AppContainer:
         attribute_registry=registry,
         attribute_handler=AttributeHandler(registry),
         template_parser=TemplateParser(),
-        merger=GeminiMerger(),
+        merger=GeminiMerger(tracer=effective_tracer),
         planner=Planner(),
         tracker=tracker,
     )
-    return AppContainer(attribute_registry=registry, runtime_engine=engine)
+    return AppContainer(
+        attribute_registry=registry,
+        runtime_engine=engine,
+        tracer=effective_tracer,
+    )
 
 
 __all__ = ["AppContainer", "build_container", "build_default_attribute_registry"]

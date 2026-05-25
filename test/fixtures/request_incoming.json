@@ -1,0 +1,25 @@
+{
+  "template": {
+    "objects": [
+      {
+        "name": "test",
+        "attributes": []
+      }
+    ]
+  },
+  "callback_url": "http://localhost:19999/cb",
+  "tasks": [
+    {
+      "task_id": "fixture_test",
+      "media_type": "image",
+      "frames": [
+        {
+          "frame_id": "f1",
+          "url": "file:///C:/Users/Administrator/Documents/tools/MVP_Runtime-main/MVP_Runtime-main/temp/test.jpg",
+          "timestamp_ms": 0
+        }
+      ],
+      "fps": null
+    }
+  ]
+}

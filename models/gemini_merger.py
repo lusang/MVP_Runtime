@@ -7,7 +7,9 @@ Real mode: full image + structured prompt sent to Gemini for multi-step review.
 
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
 from typing import Any
 
 from schemas.template_spec import ParsedTaskSpec
@@ -17,8 +19,31 @@ def _force_mock() -> bool:
     return os.environ.get("MVP_FORCE_GEMINI_MOCK", "1").strip() in ("1", "true", "yes")
 
 
+def _load_merge_rules() -> dict[str, Any]:
+    """Load merge rules from config/merge_rules.json, returning defaults on failure."""
+    path = Path(__file__).resolve().parent.parent / "config" / "merge_rules.json"
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {
+            "weights": {"detector": 0.3, "verifier": 0.7},
+            "attribute_confidence_threshold": 0.3,
+            "nms_iou_threshold": 0.5,
+        }
+
+
+def _compute_weighted_confidence(det_score: float, verif_score: float, weights: dict[str, float]) -> float:
+    """Weighted combination of detector and verifier scores."""
+    w_det = weights.get("detector", 0.3)
+    w_ver = weights.get("verifier", 0.7)
+    return det_score * w_det + verif_score * w_ver
+
+
 class GeminiMerger:
     """Final annotation merge: review all pipeline steps, produce panel + trace."""
+
+    def __init__(self, tracer: Any | None = None) -> None:
+        self._tracer = tracer
 
     async def merge(
         self,
@@ -51,7 +76,7 @@ class GeminiMerger:
 
         from models.gemini_client import GeminiClient
 
-        client = GeminiClient()
+        client = GeminiClient(tracer=self._tracer)
         result = await client.generate_merge(
             image_path=image_path,
             object_name=parsed.object_name,
@@ -82,6 +107,10 @@ def _mock_merge(
     candidates_data: list[dict[str, Any]],
     scene_pure_negative: bool = False,
 ) -> dict[str, Any]:
+    merge_rules = _load_merge_rules()
+    weights = merge_rules.get("weights", {"detector": 0.3, "verifier": 0.7})
+    attr_threshold = float(merge_rules.get("attribute_confidence_threshold", 0.3))
+
     objects: list[dict[str, Any]] = []
     trace: list[dict[str, Any]] = []
 
@@ -116,10 +145,10 @@ def _mock_merge(
         det_score = float(c.get("detector_score", 0))
         verif_score = float(verif.get("score", 0))
 
-        # Independent merge confidence — not just mechanical average
-        merge_conf = (det_score + verif_score) / 2.0
+        # Weighted voting: configurable detector/verifier weights
+        merge_conf = _compute_weighted_confidence(det_score, verif_score, weights)
 
-        # Agreement/conflict signals
+        # Agreement/conflict bonus/penalty on top of weighted base
         verif_ok = verif.get("ok", False)
         if verif_ok and det_score > 0.5:
             merge_conf += 0.05  # detector + verify agree
@@ -196,15 +225,39 @@ def _mock_merge(
             "reasoning": "Negative-sample attributes checked on full scene.",
         })
 
+    # ── Attribute conflict resolution across positive candidates ──
+    resolved_attributes: dict[str, dict[str, Any]] = {}
+    for obj in objects:
+        if not obj["is_positive"]:
+            continue
+        for attr_key, attr_val in obj.get("attributes", {}).items():
+            if not isinstance(attr_val, dict):
+                continue
+            current_conf = attr_val.get("confidence", 0)
+            best = resolved_attributes.get(attr_key)
+            if best is None or current_conf > best.get("confidence", 0):
+                resolved_attributes[attr_key] = {
+                    "value": attr_val.get("value"),
+                    "confidence": current_conf,
+                    "uncertain": current_conf < attr_threshold,
+                }
+
     trace.append({
         "step": "merge",
         "input": f"{len(candidates_data)} candidate(s) with all intermediate results",
         "output": f"{sum(1 for o in objects if o['is_positive'])} positive, {sum(1 for o in objects if not o['is_positive'])} negative",
-        "reasoning": "Merge confidence computed independently with agreement/conflict signals: detector+verify agreement, attribute confidence quality, and negative flag penalties applied. Merge confidence is the final authority.",
+        "reasoning": (
+            f"Weighted voting (detector={weights.get('detector')}, "
+            f"verifier={weights.get('verifier')}) with agreement/conflict signals. "
+            f"Attribute conflicts resolved across {len(resolved_attributes)} attribute(s). "
+            f"Merge confidence is the final authority."
+        ),
     })
 
     return {
         "adapter": "GeminiMergerMock",
         "objects": objects,
         "reasoning_trace": trace,
+        "resolved_attributes": resolved_attributes,
+        "merge_rules": merge_rules,
     }

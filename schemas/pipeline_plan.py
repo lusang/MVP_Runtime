@@ -20,7 +20,7 @@ class PlanStep(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    step: str = Field(..., description="detect, verify, attribute, quality, negative, merge")
+    step: str = Field(..., description="detect, nms, verify, attribute, quality, negative, merge")
     model_id: str = Field(..., description="Model from ModelRegistry")
     data_flow: DataFlow = Field(default=DataFlow.CROP)
     order: int = Field(..., ge=0, description="Execution order — sorted ascending")

@@ -30,6 +30,9 @@ def _force_mock() -> bool:
 class GeminiVerifier:
     """Routes to real GeminiClient or mock based on MVP_FORCE_GEMINI_MOCK."""
 
+    def __init__(self, tracer: Any | None = None) -> None:
+        self._tracer = tracer
+
     async def verify_object(
         self,
         *,
@@ -54,7 +57,7 @@ class GeminiVerifier:
 
         from models.gemini_client import GeminiClient
 
-        client = GeminiClient()
+        client = GeminiClient(tracer=self._tracer)
         result = await client.verify_object(
             image_path=image_path,
             object_name=parsed.object_name,
@@ -86,7 +89,7 @@ class GeminiVerifier:
 
         from models.gemini_client import GeminiClient
 
-        client = GeminiClient()
+        client = GeminiClient(tracer=self._tracer)
         return await client.verify_scene_pure_negative(
             image_path=image_path,
             object_name=parsed.object_name,
@@ -134,7 +137,7 @@ class GeminiVerifier:
 
         from models.gemini_client import GeminiClient
 
-        client = GeminiClient()
+        client = GeminiClient(tracer=self._tracer)
         result = await client.verify_attribute(
             image_path=image_path,
             object_name=parsed.object_name,
