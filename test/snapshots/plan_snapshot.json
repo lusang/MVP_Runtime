@@ -1,0 +1,112 @@
+{
+  "object_name": "objects",
+  "steps": [
+    {
+      "order": 0,
+      "step": "negative",
+      "model_id": "gemini-2.0-flash",
+      "data_flow": "full_image",
+      "per_candidate": false,
+      "scope": "negative",
+      "params": {
+        "scene_check": true,
+        "attribute_key": "Pure Negative"
+      }
+    },
+    {
+      "order": 1,
+      "step": "detect",
+      "model_id": "yolo-world-v2-x",
+      "data_flow": "full_image",
+      "per_candidate": false,
+      "scope": null,
+      "params": {}
+    },
+    {
+      "order": 2,
+      "step": "nms",
+      "model_id": "rule-engine",
+      "data_flow": "full_image",
+      "per_candidate": false,
+      "scope": null,
+      "params": {
+        "iou_threshold": 0.5
+      }
+    },
+    {
+      "order": 3,
+      "step": "verify",
+      "model_id": "gemini-2.0-flash",
+      "data_flow": "crop",
+      "per_candidate": true,
+      "scope": null,
+      "params": {}
+    },
+    {
+      "order": 4,
+      "step": "quality",
+      "model_id": "gemini-2.0-flash",
+      "data_flow": "full_image",
+      "per_candidate": false,
+      "scope": "quality",
+      "params": {
+        "attribute_keys": [
+          "background_clutter"
+        ]
+      }
+    },
+    {
+      "order": 5,
+      "step": "attribute",
+      "model_id": "gemini-2.5-pro",
+      "data_flow": "crop",
+      "per_candidate": true,
+      "scope": "semantic",
+      "params": {
+        "attribute_keys": [
+          "object_type",
+          "is_package"
+        ]
+      }
+    },
+    {
+      "order": 6,
+      "step": "negative",
+      "model_id": "gemini-2.0-flash",
+      "data_flow": "crop",
+      "per_candidate": true,
+      "scope": "negative",
+      "params": {
+        "attribute_keys": [
+          "ambiguous",
+          "open_set_negative"
+        ]
+      }
+    },
+    {
+      "order": 7,
+      "step": "merge",
+      "model_id": "gemini-2.0-flash",
+      "data_flow": "full_image",
+      "per_candidate": false,
+      "scope": null,
+      "params": {}
+    }
+  ],
+  "early_exit_rules": [
+    {
+      "condition": "scene_pure_negative",
+      "reason": "scene confirmed pure negative — no target object present"
+    }
+  ],
+  "skip_conditions": [
+    {
+      "condition": "scene_pure_negative",
+      "reason": "Pure Negative already confirmed at scene level"
+    },
+    {
+      "condition": "all(not c.exists for c in candidates)",
+      "reason": "all candidates rejected by verification — no targets to assess"
+    }
+  ]
+}

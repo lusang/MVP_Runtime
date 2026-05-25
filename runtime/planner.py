@@ -1,8 +1,14 @@
-﻿"""
-Planner — Gemini-driven pipeline strategy that outputs a PipelinePlan.
+"""
+Planner — compiles a template into an executable PipelinePlan.
 
-When MVP_DISABLE_PLANNER=1 or on failure, falls back to _StaticPlanFactory
-which produces a plan equivalent to the pre-Planner hardcoded pipeline.
+Architecture (v2):
+  Stage 1: Semantic Classifier    — attribute → semantic feature vector
+  Stage 2a: Capability Mapping    — feature vector → required capabilities
+  Stage 2b: Resolver              — capabilities → handler + model_id
+  Stage 3: StepGraph Builder      — attribute params → PipelinePlan
+  Stage 4: Validator              — validate PipelinePlan
+
+When MVP_DISABLE_PLANNER=1, falls back to _StaticPlanFactory (legacy).
 """
 
 from __future__ import annotations
@@ -12,12 +18,20 @@ import json
 import os
 import re
 import uuid
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+from PIL import Image
+
+from runtime.capability_mapping import map_features
+from runtime.plan_validator import validate
+from runtime.prompt_manager import PromptManager
+from runtime.resolver import resolve
+from runtime.semantic_classifier import classify_by_keywords
+from runtime.step_graph_builder import StepGraphBuilder
 from schemas.pipeline_plan import DataFlow, EarlyExitRule, PipelinePlan, PlanStep, SkipCondition
 from schemas.template_spec import HANDLER_BY_SCOPE, ParsedTaskSpec
-from runtime.prompt_manager import PromptManager
 
 
 def _planner_disabled() -> bool:
@@ -114,13 +128,10 @@ Respond ONLY with a valid JSON object (no markdown, no extra text) matching this
 
 
 def _read_image_bytes(image_path: str) -> bytes:
-    from PIL import Image
-    import io
-
     with Image.open(image_path) as im:
         if im.mode != "RGB":
             im = im.convert("RGB")
-        buf = io.BytesIO()
+        buf = BytesIO()
         im.save(buf, format="JPEG", quality=85)
         return buf.getvalue()
 
@@ -145,8 +156,58 @@ def _extract_json(text: str) -> dict[str, Any]:
     raise ValueError(f"Could not parse JSON from Planner response: {text[:300]}")
 
 
+# ── New Compiler ────────────────────────────────────────────────────────────
+
+
+def compile_plan(parsed: ParsedTaskSpec) -> PipelinePlan:
+    """Compile a template into an executable PipelinePlan.
+
+    This is the canonical entry point for the v2 compiler pipeline.
+    It runs all 4 stages: classifier → mapping → resolver → builder → validator.
+    """
+    # Collect all enabled attributes across scopes
+    all_attrs = (
+        [(a, "semantic") for a in parsed.semantic_attributes if a.enabled]
+        + [(a, "quality") for a in parsed.quality_attributes if a.enabled]
+        + [(a, "negative") for a in parsed.negative_attributes if a.enabled]
+    )
+
+    attribute_params = []
+    for attr, scope in all_attrs:
+        # Stage 1: Semantic Classifier
+        features = classify_by_keywords(attr)
+
+        # Stage 2a: Capability Mapping
+        caps = map_features(features, attribute_key=attr.key, scope=scope)
+
+        # Stage 2b: Resolver
+        params = resolve(caps, scope=scope, attribute_name=attr.name)
+
+        attribute_params.append(params)
+
+    # Stage 3: StepGraph Builder
+    builder = StepGraphBuilder()
+    plan = builder.build(parsed, attribute_params)
+
+    # Stage 4: Validator
+    result = validate(plan)
+    if not result.passed:
+        raise ValueError(
+            f"Plan validation failed: {'; '.join(result.errors)}"
+        )
+
+    return plan
+
+
+# ── Legacy Planner (Gemini-driven, with static fallback) ────────────────────
+
+
 class Planner:
-    """Gemini-driven pipeline planner with static fallback."""
+    """Gemini-driven pipeline planner with static fallback.
+
+    The primary entry point is compile() — a deterministic 4-stage compiler.
+    The old plan() method is kept for backward compatibility.
+    """
 
     def __init__(
         self,
@@ -233,7 +294,7 @@ class Planner:
             for image in images:
                 engine.run_with_plan(image_path=image, plan=compiled_plan, parsed=parsed)
         """
-        return _StaticPlanFactory.build(parsed)
+        return compile_plan(parsed)
 
 
 def _format_attrs(attrs: list) -> str:
@@ -245,8 +306,14 @@ def _format_attrs(attrs: list) -> str:
     return "\n".join(lines)
 
 
+# ── Legacy Static Factory (kept as fallback) ────────────────────────────
+
+
 class _StaticPlanFactory:
-    """Produces a PipelinePlan equivalent to the pre-Planner hardcoded 6-stage pipeline."""
+    """Legacy static plan builder — kept as fallback when MVP_DISABLE_PLANNER=1.
+
+    Will be removed in a future version once the v2 compiler is fully validated.
+    """
 
     @staticmethod
     def build(parsed: ParsedTaskSpec) -> PipelinePlan:
@@ -254,9 +321,7 @@ class _StaticPlanFactory:
         steps: list[PlanStep] = []
         order = 0
 
-        has_pure_negative = any(
-            a.name == "Pure Negative" and a.enabled for a in parsed.negative_attributes
-        )
+        has_pure_negative = _has_pure_negative(parsed)
 
         # Step 0: Scene-level pure-negative pre-check (if applicable)
         if has_pure_negative:
@@ -281,7 +346,7 @@ class _StaticPlanFactory:
         ))
         order += 1
 
-        # Step 2: Non-Maximum Suppression (deterministic overlap removal)
+        # Step 2: Non-Maximum Suppression
         steps.append(PlanStep(
             step="nms",
             model_id="rule-engine",
@@ -303,7 +368,6 @@ class _StaticPlanFactory:
         order += 1
 
         # Steps 3-5: Attributes by scope — quality before semantic
-        # (feasibility is computed from quality scores, gates semantic attributes)
         for scope in ("quality", "semantic", "negative"):
             scope_attrs = getattr(parsed, f"{scope}_attributes", [])
             enabled = [a for a in scope_attrs if a.enabled]
@@ -314,8 +378,6 @@ class _StaticPlanFactory:
                 model_id = "gemini-2.0-flash"
                 step_type = "attribute"
 
-                # Split semantic attributes by analysis_scope:
-                # crop-scope → assessed on YOLO crop; full_image-scope → assessed on full scene
                 crop_keys = frozenset(a.key for a in enabled if a.analysis_scope == "crop")
                 full_keys = frozenset(a.key for a in enabled if a.analysis_scope == "full_image")
 
@@ -377,20 +439,15 @@ class _StaticPlanFactory:
             per_candidate=False,
         ))
 
-        # Early exit rules — only fire AFTER the relevant step has executed.
-        # No early exit for empty detections: per-candidate steps become no-ops,
-        # and merge handles 0 candidates naturally.
         early_exit_rules: list[EarlyExitRule] = []
         if has_pure_negative:
-            early_exit_rules.insert(0, EarlyExitRule(
+            early_exit_rules.append(EarlyExitRule(
                 condition="scene_pure_negative",
                 reason="scene confirmed pure negative — no target object present",
             ))
 
-        # Skip conditions
         skip_conditions: list[SkipCondition] = []
 
-        # Skip per-candidate Pure Negative when scene check already ran
         if has_pure_negative:
             skip_conditions.append(SkipCondition(
                 step="negative",
@@ -398,7 +455,6 @@ class _StaticPlanFactory:
                 reason="Pure Negative already confirmed at scene level",
             ))
 
-        # Skip semantic step when ALL candidates were rejected by verification
         skip_conditions.append(SkipCondition(
             step="attribute",
             condition="all(not c.exists for c in candidates)",
@@ -414,6 +470,13 @@ class _StaticPlanFactory:
             planner_model="_StaticPlanFactory",
             planner_version="1.0",
         )
+
+
+def _has_pure_negative(parsed: ParsedTaskSpec) -> bool:
+    return any(
+        a.enabled and a.name.lower().replace(" ", "_") == "pure_negative"
+        for a in parsed.negative_attributes
+    )
 
 
 def _gemini_generate_planner(

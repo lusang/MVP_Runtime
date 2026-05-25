@@ -1,0 +1,93 @@
+{
+  "scene_pure_negative": false,
+  "executed_steps": [
+    "negative:gemini-2.0-flash",
+    "detect:yolo-world-v2-x",
+    "nms:rule-engine",
+    "verify:gemini-2.0-flash",
+    "quality:gemini-2.0-flash",
+    "attribute:gemini-2.5-pro",
+    "negative:gemini-2.0-flash",
+    "merge:gemini-2.0-flash"
+  ],
+  "candidates": [
+    {
+      "exists": true,
+      "detector_score": 0.91,
+      "verify_score": 0.88,
+      "confidence": 0.895,
+      "quality": {
+        "background_clutter": "none"
+      },
+      "attributes": {
+        "object_type": {
+          "value": [
+            "瓦楞纸箱"
+          ],
+          "confidence": 0.85
+        },
+        "is_package": {
+          "value": false,
+          "confidence": 0.85
+        }
+      },
+      "negative_flags": {
+        "pure_negative": false,
+        "ambiguous": false,
+        "open_set_negative": false
+      }
+    },
+    {
+      "exists": true,
+      "detector_score": 0.72,
+      "verify_score": 0.88,
+      "confidence": 0.8,
+      "quality": {
+        "background_clutter": "none"
+      },
+      "attributes": {
+        "object_type": {
+          "value": [
+            "瓦楞纸箱"
+          ],
+          "confidence": 0.85
+        },
+        "is_package": {
+          "value": false,
+          "confidence": 0.85
+        }
+      },
+      "negative_flags": {
+        "pure_negative": false,
+        "ambiguous": false,
+        "open_set_negative": false
+      }
+    }
+  ],
+  "merge": {
+    "objects": [
+      {
+        "is_positive": true,
+        "merge_confidence": 0.989
+      },
+      {
+        "is_positive": true,
+        "merge_confidence": 0.932
+      }
+    ],
+    "resolved_attributes": {
+      "object_type": {
+        "value": [
+          "瓦楞纸箱"
+        ],
+        "confidence": 0.85,
+        "uncertain": false
+      },
+      "is_package": {
+        "value": false,
+        "confidence": 0.85,
+        "uncertain": false
+      }
+    }
+  }
+}
