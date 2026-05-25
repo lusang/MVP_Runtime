@@ -17,6 +17,8 @@ from models.gemini_merger import GeminiMerger
 from models.gemini_verifier import GeminiVerifier
 from models.yolo_detector import YOLODetector
 from debug_log import agent_log
+from runtime.dag_visualizer import render_dag_text, pipeline_summary_text
+from runtime.db_recorder import RuntimeRecorder
 from runtime.object_state_builder import ObjectStateBuilder
 from runtime.performance_tracker import PerformanceTracker
 from runtime.planner import Planner
@@ -43,6 +45,7 @@ class RuntimeEngine:
         planner: Planner | None = None,
         tracker: PerformanceTracker | None = None,
         use_planner: bool = True,
+        recorder: RuntimeRecorder | None = None,
     ) -> None:
         self._template_parser = template_parser or TemplateParser()
         self._detector = detector or YOLODetector()
@@ -53,6 +56,7 @@ class RuntimeEngine:
         self._planner = planner or Planner()
         self._tracker = tracker
         self._use_planner = use_planner
+        self._recorder = recorder
 
     async def run(self, *, image_path: str, template_path: str) -> AnnotationRunResponse:
         assert_path_exists(image_path, kind="image_path")
@@ -109,6 +113,35 @@ class RuntimeEngine:
             run_id=run_id,
         )
 
+        # Record run start
+        if self._recorder:
+            graph_hash = (plan.meta or {}).get("graph_hash", "")
+            self._recorder.create_run(
+                run_id=run_id,
+                template_id=template_name,
+                template_version=plan.planner_version,
+                graph_hash=graph_hash,
+                plan_hash=graph_hash,
+                input_asset_id=image_path,
+            )
+            self._recorder.save_plan_snapshot(
+                run_id=run_id,
+                graph_json=plan.meta.get("dag_snapshot") if plan.meta else None,
+                graph_hash=graph_hash,
+            )
+
+        # DAG visualization (from plan.meta, injected by Planner.compile)
+        dag = plan.meta.get("dag_snapshot") if plan.meta else None
+        if dag:
+            summary = pipeline_summary_text(plan, dag)
+            agent_log(
+                hypothesis_id="H10",
+                location="runtime/engine.py:run_with_plan",
+                message="pipeline_dag",
+                data={"summary": summary, "graph_hash": dag.get("graph_hash", "")},
+                run_id=run_id,
+            )
+
         # --- Execute ---
         executor = StepExecutor(
             detector=self._detector,
@@ -117,6 +150,7 @@ class RuntimeEngine:
             attribute_handler=self._attribute_handler,
             merger=self._merger,
             tracker=self._tracker,
+            recorder=self._recorder,
         )
         result = await executor.execute(
             plan=plan,
@@ -146,6 +180,20 @@ class RuntimeEngine:
 
         # --- Build RuntimeTrace (debug/trace for system analysis) ---
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
+
+        # Record run completion
+        if self._recorder:
+            run_status = "completed"
+            # Check if any step failed
+            for sr in result.step_results:
+                if sr.status == "failed":
+                    run_status = "failed"
+                    break
+            self._recorder.finish_run(
+                run_id=run_id,
+                status=run_status,
+                total_latency_ms=elapsed_ms,
+            )
 
         quality_scores: list[dict[str, Any]] = []
         for c in result.candidates:

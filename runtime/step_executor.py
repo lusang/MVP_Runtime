@@ -1,6 +1,10 @@
 """
-StepExecutor — executes a PipelinePlan dynamically, recording performance per step.
-State-driven routing: quality gates semantic attributes, verify gates quality/semantic.
+StepExecutor — executes a PipelinePlan dynamically with explicit RuntimeState + StepResult.
+
+Key design:
+  - RuntimeState wraps candidates + shared state; all steps read/write through it.
+  - StepResult is produced by every step; skip/early_exit are explicit, not hidden in if/continue.
+  - _execute_one() is the single entry point for step dispatch + decision.
 """
 
 from __future__ import annotations
@@ -16,31 +20,98 @@ from models.gemini_verifier import GeminiVerifier
 from models.yolo_detector import YOLODetector
 from runtime.nms import apply_nms
 from runtime.performance_tracker import PerformanceTracker
-from schemas.candidate_state import CandidateState
+from schemas.candidate_state import Candidate, CandidateState
 from schemas.feasibility import FeasibilityRule, build_feasibility_rules
 from schemas.pipeline_plan import EarlyExitRule, PipelinePlan, PlanStep, SkipCondition
 from schemas.template_spec import ParsedTaskSpec
 from storage.image_crop import bbox_for_full_crop
 
+_HANDLER_FOR_STEP: dict[str, str] = {
+    "detect": "YOLODetector",
+    "nms": "RuleEngine",
+    "verify": "GeminiVerifier",
+    "quality": "OpenCVAnalyzer",
+    "attribute": "GeminiAttributePlugin",
+    "semantic": "GeminiAttributePlugin",
+    "negative": "GeminiNegativePlugin",
+    "merge": "MergeEngine",
+}
+
+
+# ── RuntimeState ────────────────────────────────────────────────────
+
+
+@dataclass
+class RuntimeState:
+    """Step-to-step shared state. All steps read/write candidates through this.
+
+    ``active_candidates()`` returns candidates that should be processed
+    (not SUPPRESSED or REJECTED). Steps should never directly filter
+    ``self.candidates`` — use the accessor instead.
+    """
+
+    candidates: list[Candidate] = field(default_factory=list)
+    scene_flags: dict[str, Any] = field(default_factory=dict)   # scene_pure_negative, ...
+    metrics: dict[str, Any] = field(default_factory=dict)       # cross-step numeric data
+    artifacts: dict[str, Any] = field(default_factory=dict)     # debug / intermediate files
+
+    def active_candidates(self) -> list[Candidate]:
+        """Candidates that should be processed by the current step."""
+        return [c for c in self.candidates
+                if c.state not in (CandidateState.SUPPRESSED, CandidateState.REJECTED)]
+
+    def candidate_by_id(self, oid: str) -> Candidate | None:
+        return next((c for c in self.candidates if c.object_id == oid), None)
+
+
+# ── StepResult ──────────────────────────────────────────────────────
+
+
+@dataclass
+class StepResult:
+    """Structured result produced by each step execution.
+
+    All execution decisions (skip, early_exit, success, failure) are
+    explicit through ``status`` + ``reason``, not hidden in ``if/continue``.
+    """
+
+    step: str                  # step_type (detect / nms / verify / ...)
+    status: str                # "success" | "skipped" | "failed" | "early_exit"
+    reason: str                # human-readable description of the decision
+    model_id: str = ""         # which model/handler was targeted
+    latency_ms: float = 0.0
+    input_count: int = 0
+    output_count: int = 0
+    error: str | None = None   # set when status == "failed"
+    events: list[dict] = field(default_factory=list)
+
+
+# ── _ExecutionContext (internal, shared across steps) ───────────────
+
 
 @dataclass
 class _ExecutionContext:
     detections: list[Any] = field(default_factory=list)
-    candidates: list[CandidateState] = field(default_factory=list)
-    scene_pure_negative: bool = False
     executed_step_ids: list[str] = field(default_factory=list)
     execution_log_lines: list[str] = field(default_factory=list)
     feasibility_rules: dict[str, FeasibilityRule] = field(default_factory=dict)
 
 
+# ── ExecutionResult ─────────────────────────────────────────────────
+
+
 @dataclass
 class ExecutionResult:
     detections: list[Any] = field(default_factory=list)
-    candidates: list[CandidateState] = field(default_factory=list)
+    candidates: list[Candidate] = field(default_factory=list)
     scene_pure_negative: bool = False
     merge_result: dict[str, Any] = field(default_factory=dict)
     elapsed_ms: float = 0.0
     executed_steps: list[str] = field(default_factory=list)
+    step_results: list[StepResult] = field(default_factory=list)
+
+
+# ── StepExecutor ────────────────────────────────────────────────────
 
 
 class StepExecutor:
@@ -55,6 +126,7 @@ class StepExecutor:
         attribute_handler: AttributeHandler | None = None,
         merger: GeminiMerger | None = None,
         tracker: PerformanceTracker | None = None,
+        recorder: Any = None,  # RuntimeRecorder, imported lazily to avoid circular deps
     ) -> None:
         self._detector = detector or YOLODetector()
         self._verifier = verifier or GeminiVerifier()
@@ -62,6 +134,9 @@ class StepExecutor:
         self._attribute_handler = attribute_handler
         self._merger = merger or GeminiMerger()
         self._tracker = tracker
+        self._recorder = recorder
+
+    # ── public entry point ──────────────────────────────────────────
 
     async def execute(
         self,
@@ -75,88 +150,163 @@ class StepExecutor:
         t0 = time.perf_counter()
         ctx = _ExecutionContext()
         ctx.feasibility_rules = build_feasibility_rules(parsed)
+        state = RuntimeState()
 
         steps = sorted(plan.steps, key=lambda s: s.order)
+        step_results: list[StepResult] = []
 
         for step in steps:
-            if _should_early_exit(plan.early_exit_rules, ctx):
-                break
-            if _should_skip(plan.skip_conditions, step, ctx):
-                continue
+            # Real-time step recording (if a recorder is attached)
+            step_id = None
+            if self._recorder:
+                handler = _HANDLER_FOR_STEP.get(step.step, "")
+                step_id = self._recorder.start_step(
+                    run_id=run_id,
+                    step_name=f"{step.step}:{step.model_id}",
+                    step_type=step.step,
+                    handler=handler,
+                    model_id=step.model_id,
+                    input_count=len(state.active_candidates()),
+                )
 
-            step_t0 = time.perf_counter()
-            success = True
-            try:
-                await self._dispatch(step, ctx, image_path, parsed, run_id)
-            except Exception:
-                success = False
-            step_ms = (time.perf_counter() - step_t0) * 1000.0
+            result = await self._execute_one(step, plan, ctx, state, image_path, parsed, run_id)
+            step_results.append(result)
 
+            if self._recorder and step_id:
+                self._recorder.finish_step(
+                    step_id=step_id,
+                    status=result.status,
+                    latency_ms=result.latency_ms,
+                    output_count=result.output_count,
+                    error_message=result.error or "",
+                )
+
+            # Record performance after each step
             if self._tracker:
                 self._tracker.record_step(
                     run_id=run_id,
                     step=step.step,
                     model_id=step.model_id,
                     template_name=template_name,
-                    success=success,
-                    latency_ms=step_ms,
-                    object_count=len(ctx.detections),
+                    success=result.status == "success",
+                    latency_ms=result.latency_ms,
+                    object_count=len(state.candidates),
                 )
             ctx.executed_step_ids.append(f"{step.step}:{step.model_id}")
 
+            # early_exit terminates the pipeline
+            if result.status == "early_exit":
+                break
+
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
+        scene_pure_negative = state.scene_flags.get("pure_negative", False)
+
         return ExecutionResult(
             detections=ctx.detections,
-            candidates=ctx.candidates,
-            scene_pure_negative=ctx.scene_pure_negative,
-            merge_result=getattr(ctx, "_merge_result", {}),
+            candidates=state.candidates,
+            scene_pure_negative=scene_pure_negative,
+            merge_result=getattr(state, "_merge_result", {}),
             elapsed_ms=elapsed_ms,
             executed_steps=ctx.executed_step_ids,
+            step_results=step_results,
         )
+
+    # ── single-step execution (wraps skip/early_exit/dispatch) ──────
+
+    async def _execute_one(
+        self,
+        step: PlanStep,
+        plan: PipelinePlan,
+        ctx: _ExecutionContext,
+        state: RuntimeState,
+        image_path: str,
+        parsed: ParsedTaskSpec,
+        run_id: str,
+    ) -> StepResult:
+        # 1. Early exit check — terminates entire pipeline
+        exit_reason = _check_early_exit(plan.early_exit_rules, state)
+        if exit_reason:
+            return StepResult(
+                step=step.step, model_id=step.model_id,
+                status="early_exit", reason=exit_reason,
+                input_count=len(state.active_candidates()),
+            )
+
+        # 2. Skip check — skip this step, continue to next
+        skip_reason = _check_skip(plan.skip_conditions, step, state)
+        if skip_reason:
+            return StepResult(
+                step=step.step, model_id=step.model_id,
+                status="skipped", reason=skip_reason,
+                input_count=len(state.active_candidates()),
+            )
+
+        # 3. Execute
+        input_count = len(state.active_candidates())
+        step_t0 = time.perf_counter()
+        try:
+            await self._dispatch(step, ctx, state, image_path, parsed, run_id)
+            elapsed = (time.perf_counter() - step_t0) * 1000.0
+            output_count = len(state.active_candidates())
+            return StepResult(
+                step=step.step, model_id=step.model_id,
+                status="success", reason="",
+                latency_ms=elapsed, input_count=input_count, output_count=output_count,
+            )
+        except Exception as e:
+            elapsed = (time.perf_counter() - step_t0) * 1000.0
+            return StepResult(
+                step=step.step, model_id=step.model_id,
+                status="failed", reason=str(e),
+                latency_ms=elapsed, input_count=input_count, output_count=0,
+                error=f"{type(e).__name__}: {str(e)[:500]}",
+            )
+
+    # ── dispatch ────────────────────────────────────────────────────
 
     async def _dispatch(
         self,
         step: PlanStep,
         ctx: _ExecutionContext,
+        state: RuntimeState,
         image_path: str,
         parsed: ParsedTaskSpec,
         run_id: str,
     ) -> None:
         if step.step == "detect":
-            await self._run_detect(step, ctx, image_path, parsed, run_id)
+            await self._run_detect(step, ctx, state, image_path, parsed, run_id)
         elif step.step == "nms":
-            self._run_nms(step, ctx)
+            self._run_nms(step, state)
         elif step.step == "verify":
-            await self._run_verify(step, ctx, image_path, parsed, run_id)
+            await self._run_verify(step, ctx, state, image_path, parsed, run_id)
         elif step.step == "quality":
-            await self._run_quality(step, ctx, image_path, parsed, run_id)
+            await self._run_quality(step, ctx, state, image_path, parsed, run_id)
         elif step.step in ("attribute", "semantic"):
-            await self._run_semantic(step, ctx, image_path, parsed, run_id)
+            await self._run_semantic(step, ctx, state, image_path, parsed, run_id)
         elif step.step == "negative":
-            await self._run_negative(step, ctx, image_path, parsed, run_id)
+            await self._run_negative(step, ctx, state, image_path, parsed, run_id)
         elif step.step == "merge":
-            await self._run_merge(step, ctx, image_path, parsed, run_id)
+            await self._run_merge(step, ctx, state, image_path, parsed, run_id)
 
     # ── nms ─────────────────────────────────────────────────────────
 
     def _run_nms(
         self,
         step: PlanStep,
-        ctx: _ExecutionContext,
+        state: RuntimeState,
     ) -> None:
         label = f"{step.step}:{step.model_id}"
         iou_threshold = float(step.params.get("iou_threshold", 0.5))
-        before = sum(1 for c in ctx.candidates if c.exists)
-        apply_nms(ctx.candidates, iou_threshold=iou_threshold)
-
-        after = sum(1 for c in ctx.candidates if c.exists)
+        before = len(state.active_candidates())
+        apply_nms(state.candidates, iou_threshold=iou_threshold)
+        after = len(state.active_candidates())
         suppressed = before - after
-        _log(ctx, label, f"NMS (IoU ≥ {iou_threshold})")
+        _log(state, label, f"NMS (IoU ≥ {iou_threshold})")
         if suppressed:
-            _log(ctx, None, f"    {suppressed} candidate(s) suppressed")
+            _log(state, None, f"    {suppressed} candidate(s) suppressed")
         else:
-            _log(ctx, None, f"    0 candidates suppressed")
-        _log(ctx, None, "")
+            _log(state, None, f"    0 candidates suppressed")
+        _log(state, None, "")
 
     # ── detect ──────────────────────────────────────────────────────
 
@@ -164,6 +314,7 @@ class StepExecutor:
         self,
         step: PlanStep,
         ctx: _ExecutionContext,
+        state: RuntimeState,
         image_path: str,
         parsed: ParsedTaskSpec,
         run_id: str,
@@ -177,17 +328,17 @@ class StepExecutor:
         )
         ctx.detections = detections
 
-        _log(ctx, label, f"DETECTION")
+        _log(state, label, f"DETECTION")
         if detections:
-            _log(ctx, None, f"    {len(detections)} candidate(s) found")
+            _log(state, None, f"    {len(detections)} candidate(s) found")
         else:
-            _log(ctx, None, f"    0 candidates found")
+            _log(state, None, f"    0 candidates found")
 
         for idx, det in enumerate(detections):
             bbox = det.bbox
             analysis_path = det.crop_path or image_path
             analysis_bbox = bbox_for_full_crop(analysis_path) if det.crop_path else bbox
-            ctx.candidates.append(CandidateState(
+            state.candidates.append(Candidate(
                 object_id=f"obj_{idx}",
                 detector_score=det.score,
                 bbox=bbox,
@@ -196,8 +347,8 @@ class StepExecutor:
                 analysis_bbox=analysis_bbox,
             ))
             bbox_str = f"({bbox.x1:.0f},{bbox.y1:.0f})-({bbox.x2:.0f},{bbox.y2:.0f})"
-            _log(ctx, None, f"    · obj_{idx}  yolo={det.score:.2f}  bbox={bbox_str}")
-        _log(ctx, None, "")
+            _log(state, None, f"    · obj_{idx}  yolo={det.score:.2f}  bbox={bbox_str}")
+        _log(state, None, "")
 
     # ── verify ──────────────────────────────────────────────────────
 
@@ -205,16 +356,17 @@ class StepExecutor:
         self,
         step: PlanStep,
         ctx: _ExecutionContext,
+        state: RuntimeState,
         image_path: str,
         parsed: ParsedTaskSpec,
         run_id: str,
     ) -> None:
         label = f"{step.step}:{step.model_id}"
-        _log(ctx, label, "VERIFICATION")
-        for c in ctx.candidates:
-            if not c.exists:
+        _log(state, label, "VERIFICATION")
+        for c in state.candidates:
+            if c.is_suppressed_or_rejected:
                 c.record("verify", "skipped — NMS suppressed")
-                _log(ctx, None, f"    · {c.object_id}  skipped (NMS suppressed)")
+                _log(state, None, f"    · {c.object_id}  skipped (NMS suppressed)")
                 continue
 
             verification = await self._verification_handler.verify_object(
@@ -228,15 +380,15 @@ class StepExecutor:
             c.compute_confidence()
 
             if verification.get("ok") is False:
-                c.exists = False
+                c.transition_to(CandidateState.REJECTED, "verify", "verification rejected the candidate")
                 c.record("verify", "rejected — routing to negative only")
-                _log(ctx, None, f"    · {c.object_id}  ✗ rejected → negative")
+                _log(state, None, f"    · {c.object_id}  ✗ rejected → negative")
             else:
-                c.exists = True
+                c.transition_to(CandidateState.VERIFIED, "verify", "verification confirmed the candidate")
                 c.record("verify", "confirmed, proceeding to quality")
                 rationale = str(verification.get("rationale", ""))[:80]
-                _log(ctx, None, f"    · {c.object_id}  ✓ ok  score={c.verify_score:.2f}  \"{rationale}\"")
-        _log(ctx, None, "")
+                _log(state, None, f"    · {c.object_id}  ✓ ok  score={c.verify_score:.2f}  \"{rationale}\"")
+        _log(state, None, "")
 
     # ── quality ─────────────────────────────────────────────────────
 
@@ -244,16 +396,17 @@ class StepExecutor:
         self,
         step: PlanStep,
         ctx: _ExecutionContext,
+        state: RuntimeState,
         image_path: str,
         parsed: ParsedTaskSpec,
         run_id: str,
     ) -> None:
         label = f"{step.step}:{step.model_id}"
-        _log(ctx, label, "QUALITY CHECK")
-        for c in ctx.candidates:
-            if not c.exists:
+        _log(state, label, "QUALITY CHECK")
+        for c in state.candidates:
+            if c.is_suppressed_or_rejected:
                 c.record("quality", "skipped — object does not exist")
-                _log(ctx, None, f"    · {c.object_id}  skipped (not exists)")
+                _log(state, None, f"    · {c.object_id}  skipped (not exists)")
                 continue
 
             if self._attribute_handler:
@@ -265,28 +418,24 @@ class StepExecutor:
                     scopes={"quality"},
                 )
                 c.quality = new_stage.quality
-                # Extract continuous metrics from quality results
                 for kval, qitem in c.quality.items():
                     if isinstance(qitem, dict) and "metrics" in qitem:
                         c.metrics.update(qitem["metrics"])
 
-            # Transfer quality results to visibility
             c.visibility = dict(c.quality)
-
-            # Compute attribute feasibility from visibility
             _compute_feasibility(c, ctx.feasibility_rules)
 
             anomalies = _quality_anomalies(c.quality)
             if anomalies:
-                _log(ctx, None, f"    · {c.object_id}  ⚠ {', '.join(anomalies)}")
+                _log(state, None, f"    · {c.object_id}  ⚠ {', '.join(anomalies)}")
                 if c.missing_attributes:
-                    _log(ctx, None, f"       infeasible: {', '.join(c.missing_attributes)}")
+                    _log(state, None, f"       infeasible: {', '.join(c.missing_attributes)}")
             else:
                 if c.missing_attributes:
-                    _log(ctx, None, f"    · {c.object_id}  normal (infeasible: {', '.join(c.missing_attributes)})")
+                    _log(state, None, f"    · {c.object_id}  normal (infeasible: {', '.join(c.missing_attributes)})")
                 else:
-                    _log(ctx, None, f"    · {c.object_id}  normal — all attributes feasible")
-        _log(ctx, None, "")
+                    _log(state, None, f"    · {c.object_id}  normal — all attributes feasible")
+        _log(state, None, "")
 
     # ── semantic ────────────────────────────────────────────────────
 
@@ -294,6 +443,7 @@ class StepExecutor:
         self,
         step: PlanStep,
         ctx: _ExecutionContext,
+        state: RuntimeState,
         image_path: str,
         parsed: ParsedTaskSpec,
         run_id: str,
@@ -302,21 +452,19 @@ class StepExecutor:
 
         label = f"{step.step}:{step.model_id}"
         is_full = step.data_flow == DataFlow.FULL
-        _log(ctx, label, f"SEMANTIC ATTRIBUTES ({'full_image' if is_full else 'crop'})")
+        _log(state, label, f"SEMANTIC ATTRIBUTES ({'full_image' if is_full else 'crop'})")
 
-        # If step specifies attribute_keys, only assess those
         include_keys: frozenset[str] | None = None
         step_keys = step.params.get("attribute_keys")
         if step_keys:
             include_keys = frozenset(step_keys)
 
-        for c in ctx.candidates:
-            if not c.exists:
+        for c in state.candidates:
+            if c.is_suppressed_or_rejected:
                 c.record("semantic", "skipped — object does not exist")
-                _log(ctx, None, f"    · {c.object_id}  skipped (not exists)")
+                _log(state, None, f"    · {c.object_id}  skipped (not exists)")
                 continue
 
-            # Skip attributes that quality deemed infeasible
             skip_keys: frozenset[str] | None = None
             if c.missing_attributes:
                 skip_keys = frozenset(c.missing_attributes)
@@ -325,9 +473,6 @@ class StepExecutor:
                     f"assessing feasible attributes; skipping {', '.join(c.missing_attributes)}",
                 )
 
-            # Route image/bbox by data_flow:
-            #   CROP  → use the detection crop (analysis_path / analysis_bbox)
-            #   FULL  → use the original full image + original bbox
             effective_image = c.analysis_path if not is_full else image_path
             effective_bbox = c.analysis_bbox if not is_full else c.bbox
 
@@ -343,7 +488,6 @@ class StepExecutor:
                 )
                 c.attributes.update(new_stage.attributes)
 
-            # Mark infeasible attributes as skipped
             for key in c.missing_attributes:
                 c.attributes[key] = {
                     "value": None,
@@ -352,10 +496,9 @@ class StepExecutor:
                     "reason": "quality insufficient for reliable assessment",
                 }
 
-            attrs = c.attributes
-            items = [f"{k}={v.get('value','?')}({v.get('confidence',0):.2f})" for k, v in attrs.items()]
-            _log(ctx, None, f"    · {c.object_id}  {', '.join(items)}" if items else f"    · {c.object_id}  (none)")
-        _log(ctx, None, "")
+            attrs_items = [f"{k}={v.get('value','?')}({v.get('confidence',0):.2f})" for k, v in c.attributes.items()]
+            _log(state, None, f"    · {c.object_id}  {', '.join(attrs_items)}" if attrs_items else f"    · {c.object_id}  (none)")
+        _log(state, None, "")
 
     # ── negative ────────────────────────────────────────────────────
 
@@ -363,6 +506,7 @@ class StepExecutor:
         self,
         step: PlanStep,
         ctx: _ExecutionContext,
+        state: RuntimeState,
         image_path: str,
         parsed: ParsedTaskSpec,
         run_id: str,
@@ -371,7 +515,7 @@ class StepExecutor:
 
         # Scene-level check (before detection)
         if step.per_candidate is False and step.params.get("scene_check"):
-            _log(ctx, label, "SCENE CHECK")
+            _log(state, label, "SCENE CHECK")
             pure_neg_spec = next(
                 (s for s in parsed.negative_attributes if s.name == "Pure Negative" and s.enabled),
                 None,
@@ -381,18 +525,19 @@ class StepExecutor:
                     image_path=image_path,
                     parsed=parsed,
                 )
-                ctx.scene_pure_negative = bool(scene_result.get("value", False))
-                if ctx.scene_pure_negative:
-                    _log(ctx, None, "    ⚠ Pure Negative confirmed — pipeline will stop")
+                is_pure_negative = bool(scene_result.get("value", False))
+                state.scene_flags["pure_negative"] = is_pure_negative
+                if is_pure_negative:
+                    _log(state, None, "    ⚠ Pure Negative confirmed — pipeline will stop")
                 else:
-                    _log(ctx, None, "    No Pure Negative → continue")
-            _log(ctx, None, "")
+                    _log(state, None, "    No Pure Negative → continue")
+            _log(state, None, "")
             return
 
         # Per-candidate negative check
-        _log(ctx, label, "NEGATIVE CHECK")
+        _log(state, label, "NEGATIVE CHECK")
         skip_keys: frozenset[str] | None = None
-        if ctx.scene_pure_negative:
+        if state.scene_flags.get("pure_negative", False):
             pure_neg_spec = next(
                 (s for s in parsed.negative_attributes if s.name == "Pure Negative" and s.enabled),
                 None,
@@ -400,10 +545,10 @@ class StepExecutor:
             if pure_neg_spec:
                 skip_keys = frozenset({pure_neg_spec.key})
 
-        for c in ctx.candidates:
-            if not c.exists:
+        for c in state.candidates:
+            if c.is_suppressed_or_rejected:
                 c.record("negative", "skipped — NMS suppressed")
-                _log(ctx, None, f"    · {c.object_id}  skipped (NMS suppressed)")
+                _log(state, None, f"    · {c.object_id}  skipped (NMS suppressed)")
                 continue
             if self._attribute_handler:
                 new_stage = await self._attribute_handler.analyze_by_scopes(
@@ -421,11 +566,11 @@ class StepExecutor:
             triggered = _negative_triggered(c.negative_flags)
             if triggered:
                 c.record("negative", f"flags triggered: {', '.join(triggered)}")
-                _log(ctx, None, f"    · {c.object_id}  ⚠ {', '.join(triggered)}")
+                _log(state, None, f"    · {c.object_id}  ⚠ {', '.join(triggered)}")
             else:
                 c.record("negative", "no flags")
-                _log(ctx, None, f"    · {c.object_id}  no flags")
-        _log(ctx, None, "")
+                _log(state, None, f"    · {c.object_id}  no flags")
+        _log(state, None, "")
 
     # ── merge ───────────────────────────────────────────────────────
 
@@ -433,6 +578,7 @@ class StepExecutor:
         self,
         step: PlanStep,
         ctx: _ExecutionContext,
+        state: RuntimeState,
         image_path: str,
         parsed: ParsedTaskSpec,
         run_id: str,
@@ -440,66 +586,73 @@ class StepExecutor:
         merge_result = await self._merger.merge(
             image_path=image_path,
             parsed=parsed,
-            candidates_data=[c.to_dict() for c in ctx.candidates],
-            scene_pure_negative=ctx.scene_pure_negative,
+            candidates_data=[c.to_dict() for c in state.candidates],
+            scene_pure_negative=state.scene_flags.get("pure_negative", False),
             run_id=run_id,
             execution_log_text="\n".join(ctx.execution_log_lines),
         )
-        ctx._merge_result = merge_result
+        state._merge_result = merge_result
 
 
-# ── early exit / skip ───────────────────────────────────────────────
+# ── early exit / skip (eval-based, migrated to accept RuntimeState) ──
 
-def _should_early_exit(rules: list[EarlyExitRule], ctx: _ExecutionContext) -> bool:
-    safe_ns = _safe_eval_ns(ctx)
+
+def _check_early_exit(rules: list[EarlyExitRule], state: RuntimeState) -> str | None:
+    """Return the reason string if an early-exit rule fires, else None."""
+    safe_ns = _safe_eval_ns(state)
     for rule in rules:
         try:
             if eval(rule.condition, {"__builtins__": {}}, safe_ns):
-                return True
+                return rule.reason
         except Exception:
             continue
-    return False
+    return None
 
 
-def _should_skip(
+def _check_skip(
     conditions: list[SkipCondition],
     step: PlanStep,
-    ctx: _ExecutionContext,
-) -> bool:
-    safe_ns = _safe_eval_ns(ctx)
+    state: RuntimeState,
+) -> str | None:
+    """Return the reason string if a skip condition fires, else None."""
+    safe_ns = _safe_eval_ns(state)
     for cond in conditions:
         if cond.step != step.step:
             continue
         try:
             if eval(cond.condition, {"__builtins__": {}}, safe_ns):
-                return True
+                return cond.reason
         except Exception:
             continue
-    return False
+    return None
 
 
-def _safe_eval_ns(ctx: _ExecutionContext) -> dict[str, Any]:
+def _safe_eval_ns(state: RuntimeState) -> dict[str, Any]:
     return {
         "len": len,
-        "detections": ctx.detections,
-        "candidates": ctx.candidates,
-        "scene_pure_negative": ctx.scene_pure_negative,
-        "detection_count": len(ctx.detections),
+        "detections": [],  # kept for backward-compat eval strings
+        "candidates": state.candidates,
+        "scene_pure_negative": state.scene_flags.get("pure_negative", False),
+        "detection_count": 0,
     }
 
 
 # ── helpers ─────────────────────────────────────────────────────────
 
-def _log(ctx: _ExecutionContext, label: str | None, line: str) -> None:
+
+def _log(state: RuntimeState, label: str | None, line: str) -> None:
+    """Append a log line to the execution log (stored in state.artifacts)."""
+    log_lines: list[str] = state.artifacts.get("_log_lines", [])
     if label is not None:
-        idx = len(ctx.executed_step_ids)
-        ctx.execution_log_lines.append(f"[{idx}] {line}")
+        idx = len(log_lines)
+        log_lines.append(f"[{idx}] {line}")
     else:
-        ctx.execution_log_lines.append(line)
+        log_lines.append(line)
+    state.artifacts["_log_lines"] = log_lines
 
 
 def _compute_feasibility(
-    candidate: CandidateState,
+    candidate: Candidate,
     rules: dict[str, FeasibilityRule],
 ) -> None:
     candidate.attribute_feasibility = {}

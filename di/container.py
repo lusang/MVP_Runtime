@@ -18,6 +18,7 @@ from models.gemini_merger import GeminiMerger
 from models.gemini_verifier import GeminiVerifier
 from models.opencv_analyzer import OpenCVAnalyzer
 from models.yolo_detector import YOLODetector
+from runtime.db_recorder import RuntimeRecorder
 from runtime.engine import RuntimeEngine
 from runtime.performance_tracker import PerformanceTracker
 from runtime.planner import Planner
@@ -55,6 +56,9 @@ def build_container(*, tracer: Any = None) -> AppContainer:
     tracker = PerformanceTracker()
     tracker.ensure_schema()
 
+    recorder = RuntimeRecorder()
+    recorder.ensure_schema()
+
     engine = RuntimeEngine(
         detector=YOLODetector(),
         verifier=verifier,
@@ -65,6 +69,7 @@ def build_container(*, tracer: Any = None) -> AppContainer:
         merger=GeminiMerger(tracer=effective_tracer),
         planner=Planner(),
         tracker=tracker,
+        recorder=recorder,
     )
     return AppContainer(
         attribute_registry=registry,

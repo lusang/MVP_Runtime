@@ -81,7 +81,7 @@ def _serialize_runtime_result(result) -> dict:
     candidates = []
     for c in result.candidates:
         candidates.append({
-            "exists": c.exists,
+            "exists": c.is_active,
             "detector_score": round(c.detector_score, 4) if hasattr(c, "detector_score") else None,
             "verify_score": round(c.verify_score, 4) if hasattr(c, "verify_score") else None,
             "confidence": round(c.confidence, 4) if hasattr(c, "confidence") else None,

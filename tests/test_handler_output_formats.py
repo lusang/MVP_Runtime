@@ -135,8 +135,8 @@ class TestFullPipelineOutput:
             assert "attributes" in ch
             assert "quality" in ch
             assert "negative_flags" in ch
-            assert "analysis_history" in ch
-            assert isinstance(ch["analysis_history"], list)
+            assert "history" in ch
+            assert isinstance(ch["history"], list)
 
         # ── planner_decisions ────────────────────────────────────────
         pd = trace.planner_decisions
@@ -925,72 +925,72 @@ class TestNMS:
         """Non-overlapping candidates should all survive NMS."""
         from runtime.nms import apply_nms
         from schemas.bbox import BBox
-        from schemas.candidate_state import CandidateState
+        from schemas.candidate_state import Candidate, CandidateState
 
         candidates = [
-            CandidateState(object_id="left", bbox=BBox(x1=0, y1=0, x2=100, y2=200), detector_score=0.9),
-            CandidateState(object_id="right", bbox=BBox(x1=200, y1=0, x2=300, y2=200), detector_score=0.7),
+            Candidate(object_id="left", bbox=BBox(x1=0, y1=0, x2=100, y2=200), detector_score=0.9),
+            Candidate(object_id="right", bbox=BBox(x1=200, y1=0, x2=300, y2=200), detector_score=0.7),
         ]
         apply_nms(candidates, iou_threshold=0.5)
-        assert all(c.exists for c in candidates)
+        assert all(c.state is CandidateState.DETECTED for c in candidates)
 
     def test_suppresses_overlapping_lower_score(self):
         """Overlapping candidates: lower-score box should be suppressed."""
         from runtime.nms import apply_nms
         from schemas.bbox import BBox
-        from schemas.candidate_state import CandidateState
+        from schemas.candidate_state import Candidate, CandidateState
 
         candidates = [
-            CandidateState(object_id="high", bbox=BBox(x1=0, y1=0, x2=100, y2=200), detector_score=0.9),
-            CandidateState(object_id="low", bbox=BBox(x1=10, y1=10, x2=90, y2=190), detector_score=0.5),
+            Candidate(object_id="high", bbox=BBox(x1=0, y1=0, x2=100, y2=200), detector_score=0.9),
+            Candidate(object_id="low", bbox=BBox(x1=10, y1=10, x2=90, y2=190), detector_score=0.5),
         ]
         apply_nms(candidates, iou_threshold=0.5)
-        assert candidates[0].exists  # high-score survives
-        assert not candidates[1].exists  # low-score suppressed
+        assert candidates[0].state is CandidateState.DETECTED  # high-score survives
+        assert candidates[1].state is CandidateState.SUPPRESSED  # low-score suppressed
 
     def test_high_iou_but_below_threshold_not_suppressed(self):
         """Boxes with IoU just below threshold should both survive."""
         from runtime.nms import apply_nms
         from schemas.bbox import BBox
-        from schemas.candidate_state import CandidateState
+        from schemas.candidate_state import Candidate, CandidateState
 
         # Boxes overlapping with IoU ≈ 0.33 — below 0.5 threshold
         candidates = [
-            CandidateState(object_id="a", bbox=BBox(x1=0, y1=0, x2=100, y2=200), detector_score=0.9),
-            CandidateState(object_id="b", bbox=BBox(x1=80, y1=0, x2=180, y2=200), detector_score=0.7),
+            Candidate(object_id="a", bbox=BBox(x1=0, y1=0, x2=100, y2=200), detector_score=0.9),
+            Candidate(object_id="b", bbox=BBox(x1=80, y1=0, x2=180, y2=200), detector_score=0.7),
         ]
         apply_nms(candidates, iou_threshold=0.5)
-        assert all(c.exists for c in candidates)
+        assert all(c.state is CandidateState.DETECTED for c in candidates)
 
     def test_preserves_existing_false_candidates(self):
-        """Candidates already marked exists=False should be left as-is."""
+        """Candidates already in SUPPRESSED state should be left as-is."""
         from runtime.nms import apply_nms
         from schemas.bbox import BBox
-        from schemas.candidate_state import CandidateState
+        from schemas.candidate_state import Candidate, CandidateState
 
         candidates = [
-            CandidateState(object_id="a", bbox=BBox(x1=0, y1=0, x2=100, y2=200), detector_score=0.9, exists=True),
-            CandidateState(object_id="b", bbox=BBox(x1=0, y1=0, x2=100, y2=200), detector_score=0.8, exists=False),
-            CandidateState(object_id="c", bbox=BBox(x1=0, y1=0, x2=100, y2=200), detector_score=0.7, exists=True),
+            Candidate(object_id="a", bbox=BBox(x1=0, y1=0, x2=100, y2=200), detector_score=0.9),
+            Candidate(object_id="b", bbox=BBox(x1=0, y1=0, x2=100, y2=200), detector_score=0.8, state=CandidateState.REJECTED),
+            Candidate(object_id="c", bbox=BBox(x1=0, y1=0, x2=100, y2=200), detector_score=0.7),
         ]
         apply_nms(candidates, iou_threshold=0.5)
-        assert candidates[0].exists  # highest score
-        assert not candidates[1].exists  # was already false
-        assert not candidates[2].exists  # suppressed by NMS
+        assert candidates[0].state is CandidateState.DETECTED  # highest score
+        assert candidates[1].state is CandidateState.REJECTED  # was already REJECTED
+        assert candidates[2].state is CandidateState.SUPPRESSED  # suppressed by NMS
 
-    def test_records_nms_in_analysis_history(self):
-        """Suppressed candidate should have NMS reason in analysis_history."""
+    def test_records_nms_in_history(self):
+        """Suppressed candidate should have NMS reason in history."""
         from runtime.nms import apply_nms
         from schemas.bbox import BBox
-        from schemas.candidate_state import CandidateState
+        from schemas.candidate_state import Candidate, CandidateState
 
         candidates = [
-            CandidateState(object_id="high", bbox=BBox(x1=0, y1=0, x2=100, y2=200), detector_score=0.9),
-            CandidateState(object_id="low", bbox=BBox(x1=5, y1=5, x2=95, y2=195), detector_score=0.5),
+            Candidate(object_id="high", bbox=BBox(x1=0, y1=0, x2=100, y2=200), detector_score=0.9),
+            Candidate(object_id="low", bbox=BBox(x1=5, y1=5, x2=95, y2=195), detector_score=0.5),
         ]
         apply_nms(candidates, iou_threshold=0.5)
-        history = candidates[1].analysis_history
-        assert any("NMS suppressed" in entry.get("decision", "") for entry in history)
+        history = candidates[1].history
+        assert any("IoU=" in entry.get("reason", "") for entry in history)
 
     def test_full_pipeline_nms_step_present(self, engine: RuntimeEngine, test_image: Path):
         """NMS step should appear in the executed steps."""
@@ -1009,23 +1009,25 @@ class TestWeightedVoting:
 
     def test_compute_weighted_confidence_defaults(self):
         """Default weights should produce expected confidence."""
-        from models.gemini_merger import _compute_weighted_confidence
+        from runtime.merge_engine import _default_merge_rules
 
-        # Default: det=0.3, ver=0.7
-        conf = _compute_weighted_confidence(0.9, 0.8, {"detector": 0.3, "verifier": 0.7})
-        expected = 0.9 * 0.3 + 0.8 * 0.7  # 0.27 + 0.56 = 0.83
+        rules = _default_merge_rules()
+        conf = rules.get("weights", {}).get("detector", 0.3) * 0.9 + rules.get("weights", {}).get("verifier", 0.7) * 0.8
+        expected = 0.9 * 0.3 + 0.8 * 0.7
         assert abs(conf - expected) < 0.001
 
     def test_compute_weighted_confidence_custom(self):
         """Custom weights should be used when provided."""
-        from models.gemini_merger import _compute_weighted_confidence
+        from runtime.merge_engine import _default_merge_rules
 
-        conf = _compute_weighted_confidence(0.5, 0.9, {"detector": 0.5, "verifier": 0.5})
+        rules = _default_merge_rules()
+        rules["weights"] = {"detector": 0.5, "verifier": 0.5}
+        conf = 0.5 * 0.5 + 0.9 * 0.5
         assert abs(conf - 0.7) < 0.001
 
     def test_load_merge_rules_has_expected_keys(self):
         """Merge rules config should contain required keys."""
-        from models.gemini_merger import _load_merge_rules
+        from runtime.merge_engine import _load_merge_rules
 
         rules = _load_merge_rules()
         assert "weights" in rules
@@ -1064,9 +1066,10 @@ class TestResolvedAttributes:
 
     def test_resolved_attributes_highest_confidence_wins(self):
         """When same attribute has multiple values, highest confidence should win."""
-        from models.gemini_merger import _mock_merge
+        from runtime.merge_engine import MergeEngine
         from schemas.template_spec import ParsedTaskSpec
 
+        engine = MergeEngine()
         parsed = ParsedTaskSpec(
             object_name="Test",
             semantic_attributes=[],
@@ -1095,7 +1098,7 @@ class TestResolvedAttributes:
             },
         ]
 
-        result = _mock_merge(image_path="test.jpg", parsed=parsed, candidates_data=candidates_data)
+        result = engine.merge(image_path="test.jpg", parsed=parsed, candidates_data=candidates_data)
         resolved = result.get("resolved_attributes", {})
         assert "color" in resolved
         # red (0.9) should win over blue (0.6)
@@ -1105,9 +1108,10 @@ class TestResolvedAttributes:
 
     def test_resolved_attributes_low_confidence_uncertain(self):
         """Attributes with confidence below threshold should be marked uncertain."""
-        from models.gemini_merger import _mock_merge
+        from runtime.merge_engine import MergeEngine
         from schemas.template_spec import ParsedTaskSpec
 
+        engine = MergeEngine()
         parsed = ParsedTaskSpec(
             object_name="Test",
             semantic_attributes=[],
@@ -1127,7 +1131,7 @@ class TestResolvedAttributes:
             },
         ]
 
-        result = _mock_merge(image_path="test.jpg", parsed=parsed, candidates_data=candidates_data)
+        result = engine.merge(image_path="test.jpg", parsed=parsed, candidates_data=candidates_data)
         resolved = result.get("resolved_attributes", {})
         assert "color" in resolved
         assert resolved["color"]["uncertain"] is True  # 0.2 < 0.3 threshold

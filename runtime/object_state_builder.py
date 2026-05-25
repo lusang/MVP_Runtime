@@ -1,5 +1,5 @@
 """
-Build canonical `ObjectState` and clean `AnnotationObject` from `CandidateState`.
+Build canonical `ObjectState` and clean `AnnotationObject` from `Candidate`.
 """
 
 from __future__ import annotations
@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Any
 
 from schemas.api import AnnotationObject
-from schemas.candidate_state import CandidateState
+from schemas.candidate_state import Candidate
 from schemas.object_state import ObjectState
 from schemas.template_spec import ParsedTaskSpec
 
@@ -16,7 +16,7 @@ class ObjectStateBuilder:
     @staticmethod
     def build(
         *,
-        candidate: CandidateState,
+        candidate: Candidate,
         parsed: ParsedTaskSpec,
         scene_pure_negative: bool = False,
         merge_panel: dict[str, Any] | None = None,
@@ -80,7 +80,7 @@ class ObjectStateBuilder:
             metrics=candidate.metrics,
             attribute_feasibility=candidate.attribute_feasibility,
             missing_attributes=candidate.missing_attributes,
-            analysis_history=candidate.analysis_history,
+            analysis_history=candidate.history,
             detection_confidence=detection_confidence,
             verification_confidence=verification_confidence,
             merge_confidence=merge_confidence_val,
@@ -89,7 +89,7 @@ class ObjectStateBuilder:
     @staticmethod
     def build_annotation_object(
         *,
-        candidate: CandidateState,
+        candidate: Candidate,
         object_name: str,
         merge_panel: dict[str, Any] | None = None,
         scene_pure_negative: bool = False,
@@ -150,7 +150,7 @@ class ObjectStateBuilder:
         )
 
 
-def _has_negative_flag(candidate: CandidateState, flag_name: str) -> bool:
+def _has_negative_flag(candidate: Candidate, flag_name: str) -> bool:
     for key, item in candidate.negative_flags.items():
         if not isinstance(item, dict):
             continue

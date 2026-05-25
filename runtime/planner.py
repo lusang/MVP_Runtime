@@ -25,6 +25,7 @@ from typing import Any
 from PIL import Image
 
 from runtime.capability_mapping import map_features
+from runtime.dag_visualizer import build_dag_snapshot, compute_graph_hash
 from runtime.plan_validator import validate
 from runtime.prompt_manager import PromptManager
 from runtime.resolver import resolve
@@ -195,6 +196,12 @@ def compile_plan(parsed: ParsedTaskSpec) -> PipelinePlan:
         raise ValueError(
             f"Plan validation failed: {'; '.join(result.errors)}"
         )
+
+    # Attach DAG snapshot + graph_hash to plan metadata
+    dag = build_dag_snapshot(plan)
+    dag["graph_hash"] = compute_graph_hash(dag)
+    plan.meta["graph_hash"] = dag["graph_hash"]
+    plan.meta["dag_snapshot"] = dag
 
     return plan
 

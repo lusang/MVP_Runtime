@@ -116,67 +116,38 @@ Respond ONLY with a valid JSON object (no markdown, no extra text):
 
 
 _MERGE_PROMPT = """\
-You are the FINAL DECISION layer for a multi-stage vision annotation pipeline. You are NOT a perception model — you do NOT look at images.
+Merge output schema reference — merge is now handled by runtime.merge_engine.MergeEngine (no LLM call).
 
-TASK: produce the final annotation panel for "{object_name}" using ONLY the structured pipeline outputs below.
-Definition: {description}
-Include: {include}
-Exclude: {exclude}
+The deterministic MergeEngine implements the decision rules and produces this
+output format directly from structured candidate data:
 
-Below is the COMPLETE EXECUTION LOG of every pipeline step that already ran. Each step was performed by a dedicated model and its output is authoritative for that step's scope.
-
-{execution_log}
-
-YOUR ROLE — strict decision logic only:
-1. Scan the log for conflicts between steps (e.g. detector scored high but verification rejected; negative flag contradicts verification)
-2. Resolve conflicts by applying decision rules — do NOT re-interpret the image
-3. Normalize confidence scores across all steps into a single merge_confidence
-4. Produce the final annotation panel and reasoning trace
-
-DECISION RULES:
-- If verification rejects → object is negative (is_positive=false), regardless of detector score
-- If any hard negative flag is triggered → object is negative
-- If Pure Negative scene check was positive → all objects are negative
-- If detector and verification both accept AND no negative flags → is_positive=true
-- If Ambiguous flag is the ONLY flag → status is ambiguous, confidence should reflect uncertainty
-- merge_confidence = normalize and weight upstream scores (detector, verification, attribute quality).
-  Do NOT invent new confidence from scratch — you have no image access.
-
-CONFIDENCE NORMALIZATION RULES:
-- Start from detector_score × verification_score as baseline agreement
-- If they agree (both high or both low) → confidence is the weighted average
-- If they conflict → resolve per decision rules above, set confidence to the winning side's score
-- Penalize confidence slightly (-0.05 to -0.10) for quality issues (heavy blur/occlusion)
-- Do NOT produce confidence that contradicts the decision rules
-
-CRITICAL CONSTRAINT: You MUST NOT re-analyze, re-perceive, or visually assess any image. You only have the structured text log. Your output is a DECISION, not a new perception.
-
-Respond ONLY with a valid JSON object:
 {{
   "objects": [
     {{
       "is_positive": true or false,
       "negative_category": null or "pure_negative" or "hard_negative" or "ambiguous" or "open_set_negative",
       "confidence": 0.0 to 1.0,
-      "detection_confidence": <detector_score from log>,
-      "verification_confidence": <verify_score from log>,
-      "merge_confidence": <your normalized decision confidence>,
-      "attributes": {{ "attribute_name": {{"value": ..., "confidence": 0.0-1.0}}, ... }},
-      "quality": {{ "quality_name": {{"value": ..., "confidence": 0.0-1.0}}, ... }},
-      "negative_flags": {{ "flag_name": {{"value": true/false, "confidence": 0.0-1.0}}, ... }}
+      "detection_confidence": <float>,
+      "verification_confidence": <float>,
+      "merge_confidence": <float>,
+      "attributes": {{ "name": {{"value": ..., "confidence": 0.0-1.0}}, ... }},
+      "quality": {{ "name": {{"value": ..., "confidence": 0.0-1.0}}, ... }},
+      "negative_flags": {{ "name": {{"value": true/false, "confidence": 0.0-1.0}}, ... }}
     }}
   ],
   "reasoning_trace": [
     {{
       "step": "yolo_detection" | "gemini_verification" | "gemini_semantic" | "opencv_quality" | "gemini_negative" | "merge",
-      "input": "what this step received",
-      "output": "what this step produced",
-      "reasoning": "why this step made its decision, in 1-2 sentences"
+      "input": "...",
+      "output": "...",
+      "reasoning": "1-2 sentences"
     }}
-  ]
-}}
-
-IMPORTANT: attribute/quality/negative_flag keys must match the template attribute names exactly. confidence values must be 0.0-1.0. Include exactly one reasoning_trace entry per pipeline step. You are a DECISION engine — not a perception model."""
+  ],
+  "resolved_attributes": {{
+    "name": {{"value": ..., "confidence": 0.0-1.0, "uncertain": true/false}}
+  }},
+  "merge_rules": {{"weights": {{"detector": 0.3, "verifier": 0.7}}}}
+}}"""
 
 
 def _extract_json(text: str) -> dict[str, Any]:
