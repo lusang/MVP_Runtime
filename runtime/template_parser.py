@@ -79,6 +79,25 @@ class TemplateParser:
             raw=deepcopy(raw),
         )
 
+    @staticmethod
+    def _extract_option_values(
+        options_raw: list[Any],
+    ) -> list[Any]:
+        """Extract just the ``value`` field from template option objects.
+
+        The template stores options as ``{"value": ..., "label": ..., "description": ...}``,
+        but downstream validation and prompts only need the value string.
+        """
+        extracted: list[Any] = []
+        for o in (options_raw or []):
+            if isinstance(o, dict):
+                val = o.get("value")
+                if val is not None:
+                    extracted.append(val)
+            else:
+                extracted.append(o)
+        return extracted
+
     def _parse_attribute_list(
         self,
         items: Any,
@@ -102,10 +121,11 @@ class TemplateParser:
             name = str(attr_name).strip()
             raw_scope = item.get("analysis_scope", "crop")
             analysis_scope: str = raw_scope if raw_scope in ("crop", "full_image") else "crop"
+            options = self._extract_option_values(item.get("options"))
             params = {
                 "attribute_name": name,
                 "attribute_type": item.get("type", "unknown"),
-                "options": list(item.get("options") or []),
+                "options": options,
                 "description": str(item.get("description", "")),
                 "scope": scope,
                 "analysis_scope": analysis_scope,
@@ -114,7 +134,7 @@ class TemplateParser:
                 spec = TemplateAttributeSpec(
                     name=name,
                     type=str(item.get("type", "unknown")),
-                    options=list(item.get("options") or []),
+                    options=options,
                     description=str(item.get("description", "")),
                     handler=handler,
                     key=name,

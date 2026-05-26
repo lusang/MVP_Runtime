@@ -166,6 +166,9 @@ def compile_plan(parsed: ParsedTaskSpec) -> PipelinePlan:
     This is the canonical entry point for the v2 compiler pipeline.
     It runs all 4 stages: classifier → mapping → resolver → builder → validator.
     """
+    # Read use_detector from env (default: True)
+    use_detector = os.environ.get("MVP_USE_DETECTOR", "1").strip() in ("1", "true", "yes")
+
     # Collect all enabled attributes across scopes
     all_attrs = (
         [(a, "semantic") for a in parsed.semantic_attributes if a.enabled]
@@ -188,10 +191,10 @@ def compile_plan(parsed: ParsedTaskSpec) -> PipelinePlan:
 
     # Stage 3: StepGraph Builder
     builder = StepGraphBuilder()
-    plan = builder.build(parsed, attribute_params)
+    plan = builder.build(parsed, attribute_params, use_detector=use_detector)
 
     # Stage 4: Validator
-    result = validate(plan)
+    result = validate(plan, use_detector=use_detector)
     if not result.passed:
         raise ValueError(
             f"Plan validation failed: {'; '.join(result.errors)}"

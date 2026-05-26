@@ -40,13 +40,13 @@ class ValidationResult:
     warnings: list[str] = field(default_factory=list)
 
 
-# ── Required step types that must appear in every plan ──────────────────
-
-_REQUIRED_STEPS = frozenset({"detect", "merge"})
-
-
-def validate(plan: PipelinePlan) -> ValidationResult:
+def validate(plan: PipelinePlan, use_detector: bool = True) -> ValidationResult:
     """Validate a PipelinePlan, returning errors and warnings.
+
+    Args:
+        plan: The pipeline plan to validate.
+        use_detector: When True (default), requires a ``detect`` step.
+                       When False, detect is optional (full-image mode).
 
     Returns a ValidationResult with:
       - passed=True if no errors (warnings OK)
@@ -67,25 +67,29 @@ def validate(plan: PipelinePlan) -> ValidationResult:
         result.passed = False
 
     if not steps:
-        result.errors.append("steps is empty — at least detect + merge required")
+        result.errors.append("steps is empty — at least one step + merge required")
         result.passed = False
         return result  # nothing more to check
 
     # ── Required step checks (FAIL) ─────────────────────────────────
-    for required in _REQUIRED_STEPS:
-        if required not in step_types:
-            result.errors.append(f"missing required step: {required}")
-            result.passed = False
+    # merge is always required; detect is optional in full-image mode
+    if "merge" not in step_types:
+        result.errors.append("missing required step: merge")
+        result.passed = False
+
+    if use_detector and "detect" not in step_types:
+        result.errors.append("missing required step: detect")
+        result.passed = False
 
     # ── Step ordering checks (FAIL) ─────────────────────────────────
-    # detect must come before merge
+    # detect must come before merge (only relevant when detect exists)
     if "detect" in step_types and "merge" in step_types:
         if step_types.index("detect") > step_types.index("merge"):
             result.errors.append("detect must come before merge")
             result.passed = False
 
     # ── Structural checks (WARN) ────────────────────────────────────
-    _check_structure(result, step_types)
+    _check_structure(result, step_types, use_detector)
 
     # ── Step-level checks (WARN) ────────────────────────────────────
     for s in steps:
@@ -95,25 +99,32 @@ def validate(plan: PipelinePlan) -> ValidationResult:
     return result
 
 
-def _check_structure(result: ValidationResult, step_types: list[str]) -> None:
+def _check_structure(result: ValidationResult, step_types: list[str],
+                     use_detector: bool = True) -> None:
     """Structural WARN checks — not failures, but worth flagging."""
 
-    # quality before semantic
+    # quality before semantic (detector-mode)
     if "quality" in step_types and "attribute" in step_types:
         if step_types.index("quality") > step_types.index("attribute"):
             result.warnings.append("quality step should come before attribute (semantic) step")
+
+    # full_quality before full_attribute (full-image mode)
+    if "full_quality" in step_types and "full_attribute" in step_types:
+        if step_types.index("full_quality") > step_types.index("full_attribute"):
+            result.warnings.append("full_quality should come before full_attribute")
 
     # merge last
     if step_types and step_types[-1] != "merge":
         result.warnings.append(f"merge should be the last step, but last is '{step_types[-1]}'")
 
-    # nms after detect, before verify
-    if "detect" in step_types and "nms" in step_types:
-        if step_types.index("nms") < step_types.index("detect"):
-            result.warnings.append("nms should come after detect")
-    if "nms" in step_types and "verify" in step_types:
-        if step_types.index("nms") > step_types.index("verify"):
-            result.warnings.append("nms should come before verify")
+    # nms after detect, before verify (detector mode)
+    if use_detector:
+        if "detect" in step_types and "nms" in step_types:
+            if step_types.index("nms") < step_types.index("detect"):
+                result.warnings.append("nms should come after detect")
+        if "nms" in step_types and "verify" in step_types:
+            if step_types.index("nms") > step_types.index("verify"):
+                result.warnings.append("nms should come before verify")
 
     # scene_negative before detect — only the first negative step (scene-level)
     first_neg = _index_of_all(step_types, "negative")[:1]

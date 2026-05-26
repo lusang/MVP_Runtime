@@ -4,6 +4,7 @@ HTTP interface — kept free of pipeline logic (only wiring + validation).
 
 import asyncio
 import json
+import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -14,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.deps import get_container, get_runtime_engine
 from di.container import AppContainer
 from runtime.async_worker import process_batch
+from runtime.batch_registry import cancel as cancel_batch, register as register_batch
 from runtime.engine import RuntimeEngine
 from data.io import (
     AnnotationRunRequest,
@@ -78,19 +80,42 @@ async def run_annotation_async(
 
     run_id = str(uuid.uuid4())
 
-    asyncio.create_task(
+    task = asyncio.create_task(
         process_batch(
             engine=container.runtime_engine,
             request=body,
             run_id=run_id,
         )
     )
+    register_batch(run_id, task, task_count=len(body.tasks))
 
     return AsyncAnnotationResponse(
         run_id=run_id,
         status="accepted",
         task_count=len(body.tasks),
     )
+
+
+@router.post("/cancel_run/{run_id}")
+async def cancel_run(run_id: str) -> dict:
+    """Cancel a running async batch.
+
+    Best-effort cancellation: completed tasks still send callbacks,
+    unstarted tasks are skipped. Returns 404 if run_id is unknown.
+    """
+    result = cancel_batch(run_id)
+    if not result["found"]:
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found or already completed")
+
+    logger = logging.getLogger("mvp.api")
+    logger.info("Cancel run=%s: cancelled=%d processed=%d failed=%d",
+                run_id, result["cancelled_tasks"], result["processed_count"], result["failed_count"])
+
+    return {
+        "status": "cancelled",
+        "run_id": run_id,
+        "cancelled_tasks": result["cancelled_tasks"],
+    }
 
 
 def _save_incoming_fixture(body: AsyncAnnotationRequest) -> None:

@@ -65,6 +65,7 @@ class MergeEngine:
         parsed: ParsedTaskSpec,
         candidates_data: list[dict[str, Any]],
         scene_pure_negative: bool = False,
+        scene_fallback: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Produce the final annotation panel from structured pipeline outputs.
 
@@ -80,12 +81,17 @@ class MergeEngine:
         objects: list[dict[str, Any]] = []
         trace: list[dict[str, Any]] = []
 
-        # YOLO detection trace entry
+        # Detection trace entry
+        has_detections = len(candidates_data) > 0
         trace.append({
-            "step": "yolo_detection",
+            "step": "detection" if has_detections else "scene_analysis",
             "input": f"Full image: {image_path}",
-            "output": f"{len(candidates_data)} candidate(s) detected",
-            "reasoning": f"YOLO-World v2 open-vocabulary detection for '{parsed.object_name}'.",
+            "output": f"{len(candidates_data)} candidate(s)" if has_detections else "no candidates — full-image analysis used",
+            "reasoning": (
+                f"Object detection for '{parsed.object_name}'."
+                if has_detections
+                else "No candidates provided — annotation built from scene-level analysis."
+            ),
         })
 
         # Pure negative → all objects are negative, short-circuit
@@ -200,6 +206,56 @@ class MergeEngine:
                 "input": f"Full scene + bbox for {obj_id}",
                 "output": str({k: v.get("value") for k, v in neg.items()}),
                 "reasoning": "Negative-sample attributes checked on full scene.",
+            })
+
+        # --- Scene fallback: construct annotation from scene-level data ---
+        # When YOLO detected 0 candidates but scene-level analysis ran,
+        # produce a fallback object so the annotation is never empty.
+        if not objects and scene_fallback:
+            fallback_neg = scene_fallback.get("negative", {})
+            fallback_qual = scene_fallback.get("quality", {})
+            fallback_semantic = scene_fallback.get("attributes", {})
+
+            # Determine negative category from scene-level negative flags
+            neg_category: str | None = None
+            for nk, nv in fallback_neg.items():
+                if isinstance(nv, dict) and nv.get("value") is True:
+                    neg_category = str(nv.get("attribute_name", nk))
+                    break
+            if neg_category is None:
+                neg_category = "no_detection"
+
+            # Merge quality + semantic attributes into a single attributes dict
+            fallback_attrs: dict[str, Any] = {}
+            for src in (fallback_semantic, fallback_qual):
+                for k, v in src.items():
+                    if isinstance(v, dict):
+                        val = v.get("value")
+                        if val is not None:
+                            fallback_attrs[k] = {"value": val, "confidence": v.get("confidence", 0)}
+
+            objects.append({
+                "object_id": "scene_fallback",
+                "is_positive": False,
+                "negative_category": neg_category,
+                "confidence": 0.0,
+                "detection_confidence": 0.0,
+                "verification_confidence": 0.0,
+                "merge_confidence": 0.0,
+                "attributes": fallback_attrs,
+                "quality": fallback_qual,
+                "negative_flags": fallback_neg,
+            })
+
+            trace.append({
+                "step": "scene_fallback",
+                "input": f"Full image: {image_path}",
+                "output": f"0 candidates — fallback annotation (negative_category={neg_category})",
+                "reasoning": (
+                    "No candidates were detected or provided. Scene-level quality, "
+                    "attribute, and negative analysis used to produce a complete "
+                    "fallback annotation."
+                ),
             })
 
         # --- Attribute conflict resolution across positive candidates ---

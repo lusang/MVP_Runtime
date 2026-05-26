@@ -34,6 +34,11 @@ _HANDLER_FOR_STEP: dict[str, str] = {
     "attribute": "GeminiAttributePlugin",
     "semantic": "GeminiAttributePlugin",
     "negative": "GeminiNegativePlugin",
+    "quality_fallback": "GeminiAttributePlugin",
+    "negative_fallback": "GeminiNegativePlugin",
+    "full_quality": "GeminiAttributePlugin",
+    "full_attribute": "GeminiAttributePlugin",
+    "full_negative": "GeminiNegativePlugin",
     "merge": "MergeEngine",
 }
 
@@ -285,6 +290,16 @@ class StepExecutor:
             await self._run_semantic(step, ctx, state, image_path, parsed, run_id)
         elif step.step == "negative":
             await self._run_negative(step, ctx, state, image_path, parsed, run_id)
+        elif step.step == "quality_fallback":
+            await self._run_quality_fallback(step, ctx, state, image_path, parsed, run_id)
+        elif step.step == "negative_fallback":
+            await self._run_negative_fallback(step, ctx, state, image_path, parsed, run_id)
+        elif step.step == "full_quality":
+            await self._run_full_quality(step, ctx, state, image_path, parsed, run_id)
+        elif step.step == "full_attribute":
+            await self._run_full_attribute(step, ctx, state, image_path, parsed, run_id)
+        elif step.step == "full_negative":
+            await self._run_full_negative(step, ctx, state, image_path, parsed, run_id)
         elif step.step == "merge":
             await self._run_merge(step, ctx, state, image_path, parsed, run_id)
 
@@ -572,6 +587,179 @@ class StepExecutor:
                 _log(state, None, f"    · {c.object_id}  no flags")
         _log(state, None, "")
 
+    # ── quality_fallback (scene-level, 0 candidates) ────────────────
+
+    async def _run_quality_fallback(
+        self,
+        step: PlanStep,
+        ctx: _ExecutionContext,
+        state: RuntimeState,
+        image_path: str,
+        parsed: ParsedTaskSpec,
+        run_id: str,
+    ) -> None:
+        """Scene-level quality analysis on full image (fallback for 0 candidates)."""
+        if not self._attribute_handler:
+            state.scene_flags["fallback_quality"] = {}
+            return
+        from storage.image_crop import bbox_for_full_crop
+
+        full_bbox = bbox_for_full_crop(image_path)
+        result = await self._attribute_handler.analyze_by_scopes(
+            image_path=image_path,
+            bbox=full_bbox,
+            parsed=parsed,
+            object_id="scene_fallback",
+            scopes={"quality"},
+            include_keys=frozenset(step.params.get("attribute_keys", [])),
+        )
+        state.scene_flags["fallback_quality"] = result.quality
+        _log(state, f"{step.step}:{step.model_id}", "SCENE QUALITY FALLBACK")
+        for k, v in result.quality.items():
+            val = v.get("value", "?") if isinstance(v, dict) else "?"
+            _log(state, None, f"    · {k} = {val}")
+        _log(state, None, "")
+
+    # ── negative_fallback (scene-level, 0 candidates) ───────────────
+
+    async def _run_negative_fallback(
+        self,
+        step: PlanStep,
+        ctx: _ExecutionContext,
+        state: RuntimeState,
+        image_path: str,
+        parsed: ParsedTaskSpec,
+        run_id: str,
+    ) -> None:
+        """Scene-level negative analysis on full image (fallback for 0 candidates)."""
+        if not self._attribute_handler:
+            state.scene_flags["fallback_negative"] = {}
+            return
+        from storage.image_crop import bbox_for_full_crop
+
+        full_bbox = bbox_for_full_crop(image_path)
+        result = await self._attribute_handler.analyze_by_scopes(
+            image_path=image_path,
+            bbox=full_bbox,
+            parsed=parsed,
+            object_id="scene_fallback",
+            full_image_path=image_path,
+            full_bbox=full_bbox,
+            scopes={"negative"},
+            include_keys=frozenset(step.params.get("attribute_keys", [])),
+        )
+        state.scene_flags["fallback_negative"] = result.negative
+        _log(state, f"{step.step}:{step.model_id}", "SCENE NEGATIVE FALLBACK")
+        for k, v in result.negative.items():
+            val = v.get("value", "?") if isinstance(v, dict) else "?"
+            _log(state, None, f"    · {k} = {val}")
+        _log(state, None, "")
+
+    # ── full_quality (no-detector topology) ─────────────────────────
+
+    async def _run_full_quality(
+        self,
+        step: PlanStep,
+        ctx: _ExecutionContext,
+        state: RuntimeState,
+        image_path: str,
+        parsed: ParsedTaskSpec,
+        run_id: str,
+    ) -> None:
+        """Full-image quality analysis (no-detector topology)."""
+        if not self._attribute_handler:
+            state.scene_flags["full_quality"] = {}
+            return
+        from storage.image_crop import bbox_for_full_crop
+
+        full_bbox = bbox_for_full_crop(image_path)
+        result = await self._attribute_handler.analyze_by_scopes(
+            image_path=image_path,
+            bbox=full_bbox,
+            parsed=parsed,
+            object_id="scene",
+            scopes={"quality"},
+            include_keys=frozenset(step.params.get("attribute_keys", [])),
+            # Note: quality intentionally uses OpenCV (handler_override not set).
+            # Gemini was evaluated but produced worse results on full images —
+            # OpenCV crop-level heuristics are more accurate for occlusion/blur/lighting.
+            # handler_override={"quality": "gemini"},
+        )
+        state.scene_flags["full_quality"] = result.quality
+        _log(state, f"{step.step}:{step.model_id}", "FULL IMAGE QUALITY")
+        for k, v in result.quality.items():
+            val = v.get("value", "?") if isinstance(v, dict) else "?"
+            _log(state, None, f"    · {k} = {val}")
+        _log(state, None, "")
+
+    # ── full_attribute (no-detector topology) ───────────────────────
+
+    async def _run_full_attribute(
+        self,
+        step: PlanStep,
+        ctx: _ExecutionContext,
+        state: RuntimeState,
+        image_path: str,
+        parsed: ParsedTaskSpec,
+        run_id: str,
+    ) -> None:
+        """Full-image semantic attribute analysis (no-detector topology)."""
+        if not self._attribute_handler:
+            state.scene_flags["full_attributes"] = {}
+            return
+        from storage.image_crop import bbox_for_full_crop
+
+        full_bbox = bbox_for_full_crop(image_path)
+        result = await self._attribute_handler.analyze_by_scopes(
+            image_path=image_path,
+            bbox=full_bbox,
+            parsed=parsed,
+            object_id="scene",
+            scopes={"semantic"},
+            include_keys=frozenset(step.params.get("attribute_keys", [])),
+        )
+        state.scene_flags["full_attributes"] = result.attributes
+        _log(state, f"{step.step}:{step.model_id}", "FULL IMAGE ATTRIBUTES")
+        for k, v in result.attributes.items():
+            val = v.get("value", "?") if isinstance(v, dict) else "?"
+            _log(state, None, f"    · {k} = {val}")
+        _log(state, None, "")
+
+    # ── full_negative (no-detector topology) ────────────────────────
+
+    async def _run_full_negative(
+        self,
+        step: PlanStep,
+        ctx: _ExecutionContext,
+        state: RuntimeState,
+        image_path: str,
+        parsed: ParsedTaskSpec,
+        run_id: str,
+    ) -> None:
+        """Full-image negative analysis (no-detector topology)."""
+        if not self._attribute_handler:
+            state.scene_flags["full_negative"] = {}
+            return
+        from storage.image_crop import bbox_for_full_crop
+
+        full_bbox = bbox_for_full_crop(image_path)
+        result = await self._attribute_handler.analyze_by_scopes(
+            image_path=image_path,
+            bbox=full_bbox,
+            parsed=parsed,
+            object_id="scene",
+            full_image_path=image_path,
+            full_bbox=full_bbox,
+            scopes={"negative"},
+            include_keys=frozenset(step.params.get("attribute_keys", [])),
+        )
+        state.scene_flags["full_negative"] = result.negative
+        _log(state, f"{step.step}:{step.model_id}", "FULL IMAGE NEGATIVE")
+        for k, v in result.negative.items():
+            val = v.get("value", "?") if isinstance(v, dict) else "?"
+            _log(state, None, f"    · {k} = {val}")
+        _log(state, None, "")
+
     # ── merge ───────────────────────────────────────────────────────
 
     async def _run_merge(
@@ -583,12 +771,32 @@ class StepExecutor:
         parsed: ParsedTaskSpec,
         run_id: str,
     ) -> None:
+        scene_fallback = {}
+        fallback_q = state.scene_flags.get("fallback_quality")
+        fallback_n = state.scene_flags.get("fallback_negative")
+        if fallback_q or fallback_n:
+            scene_fallback = {
+                "quality": fallback_q or {},
+                "negative": fallback_n or {},
+            }
+        else:
+            full_q = state.scene_flags.get("full_quality")
+            full_a = state.scene_flags.get("full_attributes")
+            full_n = state.scene_flags.get("full_negative")
+            if full_q or full_a or full_n:
+                scene_fallback = {
+                    "quality": full_q or {},
+                    "attributes": full_a or {},
+                    "negative": full_n or {},
+                }
+
         merge_result = await self._merger.merge(
             image_path=image_path,
             parsed=parsed,
             candidates_data=[c.to_dict() for c in state.candidates
                                 if c.state is not CandidateState.SUPPRESSED],
             scene_pure_negative=state.scene_flags.get("pure_negative", False),
+            scene_fallback=scene_fallback,
             run_id=run_id,
             execution_log_text="\n".join(ctx.execution_log_lines),
         )

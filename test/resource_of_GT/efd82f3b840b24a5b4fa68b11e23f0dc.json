@@ -1,0 +1,40 @@
+{
+  "annotation_id": "f9a85d0d-8d9b-47eb-b8c9-e55d2605ab80",
+  "asset_id": "fc1ee1d6-7ed6-4db0-99cc-93d973d5d3b0",
+  "file_path": "C:\\Users\\Administrator\\Documents\\01_SECURITY_ASSETS\\_imported\\45e46d57f1a7407591a57214ed47ead0\\neg\\efd82f3b840b24a5b4fa68b11e23f0dc.jpeg",
+  "file_name": "efd82f3b840b24a5b4fa68b11e23f0dc.jpeg",
+  "project_name": "包裹识别",
+  "template_project_name": "包裹识别",
+  "template_schema_version": "v9",
+  "annotationa_stage": "annotated",
+  "data_split": "p0",
+  "task_type": null,
+  "annotator": "陶醉",
+  "object_tags": [
+    "none"
+  ],
+  "created_at": "2026-05-20T16:37:40.099817+08:00",
+  "ground_truth": {
+    "objects": [
+      {
+        "name": "objects",
+        "quality": {
+          "blur": "clear",
+          "lighting": "normal",
+          "occlusion": "none"
+        },
+        "negative": {},
+        "attributes": {
+          "scenario": "resident_carry",
+          "is_package": true,
+          "object_type": [
+            "poly_mailer",
+            "cardboard_box"
+          ],
+          "person_action": "none",
+          "size_category": "medium"
+        }
+      }
+    ]
+  }
+}

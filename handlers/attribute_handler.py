@@ -45,6 +45,7 @@ class AttributeHandler:
         skip_keys: frozenset[str] | None = None,
         include_keys: frozenset[str] | None = None,
         scopes: set[str] | None = None,
+        handler_override: dict[str, str] | None = None,
     ) -> AttributeStageResult:
         result = AttributeStageResult()
         buckets: dict[AttributeScope, dict[str, Any]] = {
@@ -63,6 +64,11 @@ class AttributeHandler:
             if include_keys is not None and spec.key not in include_keys:
                 continue
 
+            # Allow caller to override handler per-scope (e.g. full-image quality → Gemini)
+            handler_id = spec.handler
+            if handler_override and spec.scope in handler_override:
+                handler_id = handler_override[spec.scope]
+
             # Negative-scope plugins receive the FULL image + original bbox for context
             if spec.scope == "negative" and full_image_path is not None:
                 effective_image = full_image_path
@@ -71,7 +77,7 @@ class AttributeHandler:
                 effective_image = image_path
                 effective_bbox = bbox
 
-            plugin = self._registry.resolve(spec.handler)
+            plugin = self._registry.resolve(handler_id)
             fragment = await plugin.analyze(
                 image_path=effective_image,
                 bbox=effective_bbox,

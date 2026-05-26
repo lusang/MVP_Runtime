@@ -26,8 +26,8 @@ class GeminiAttributePlugin:
         object_id: str,
         spec: TemplateAttributeSpec,
     ) -> dict[str, Any]:
-        if spec.scope != "semantic":
-            raise ValueError(f"GeminiAttributePlugin expected semantic scope, got {spec.scope!r}")
+        # Note: scope guard intentionally removed — this plugin handles
+        # quality attributes too when full-image mode overrides the handler.
         return await self._verifier.verify_attribute(
             image_path=image_path,
             bbox=bbox,

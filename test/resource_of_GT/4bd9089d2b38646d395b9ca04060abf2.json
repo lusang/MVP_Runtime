@@ -1,0 +1,39 @@
+{
+  "annotation_id": "fde5aafe-eb3c-4e4e-8078-9c5440298346",
+  "asset_id": "560a42d3-46ed-4ca1-9d40-dc3a3a4fe457",
+  "file_path": "C:\\Users\\Administrator\\Documents\\01_SECURITY_ASSETS\\_imported\\45e46d57f1a7407591a57214ed47ead0\\neg\\4bd9089d2b38646d395b9ca04060abf2.jpeg",
+  "file_name": "4bd9089d2b38646d395b9ca04060abf2.jpeg",
+  "project_name": "包裹识别",
+  "template_project_name": "包裹识别",
+  "template_schema_version": "v9",
+  "annotationa_stage": "annotated",
+  "data_split": "p0",
+  "task_type": null,
+  "annotator": "陶醉",
+  "object_tags": [
+    "none"
+  ],
+  "created_at": "2026-05-20T16:37:40.099817+08:00",
+  "ground_truth": {
+    "objects": [
+      {
+        "name": "objects",
+        "quality": {
+          "blur": "clear",
+          "lighting": "normal",
+          "occlusion": "heavy"
+        },
+        "negative": {},
+        "attributes": {
+          "scenario": "resident",
+          "is_package": true,
+          "object_type": [
+            "cardboard_box"
+          ],
+          "person_action": "none",
+          "size_category": "large"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,299 @@
+{
+  "objects": [
+    {
+      "name": "objects",
+      "label": "类包裹对象",
+      "description": "门口场景中出现在地面/台阶/人手中，且形态上可能被模型误认为快递纸箱的物体。\n\n当前业务定义：package = 快递纸箱 (cardboard_box)。外卖袋、软袋、信封、水等均不属于包裹检测范畴。\n\n标注规则：\"如果你觉得模型可能把这个东西误认成快递纸箱，就标它。\"\n\n后处理说明（代码执行，标注者不关心）：\n- is_package=true → 正样本，参与 mAP 计算\n- is_package=false → Hard Negative（带 bbox + 类型），参与 FP 分析\n- 场景中没有任何 object → Pure Negative",
+      "include": "- 正样本：快递纸箱 (cardboard_box) — 瓦楞纸箱，规则直角，硬质不变形\n- 负样本：所有可能被模型误认为快递纸箱的物体（外卖袋、快递软袋、编织袋、信封、背包、收纳箱、各类袋子、食品运输箱等）\n- 核心原则：如果你觉得模型可能把这个东西误认成快递纸箱，就标它",
+      "exclude": "- 业务定义非包裹：外卖餐盒/袋、水桶/水瓶、牛奶箱等\n- 明显不可能被误认为纸箱的小物件（钥匙、手机、水杯、雨伞等）\n- 建筑固定结构（门、墙、台阶、柱子）\n- 家具（固定长椅、桌子、花盆）\n- 未封装散落物品（一堆树叶、工具等）",
+      "geometry": {
+        "type": "bbox",
+        "label": "边界框"
+      },
+      "attributes": [
+        {
+          "name": "scenario",
+          "label": "场景",
+          "description": "画面中正在发生什么",
+          "type": "single_select",
+          "options": [
+            {
+              "value": "delivery",
+              "label": "派送",
+              "description": "包裹派送场景，包括：快递员、外卖"
+            },
+            {
+              "value": "empty",
+              "label": "空场景",
+              "description": "纯背景版，无人活动"
+            },
+            {
+              "value": "other",
+              "label": "其他",
+              "description": "四类场景无法归纳的部分"
+            },
+            {
+              "value": "resident",
+              "label": "居民活动",
+              "description": "居民常规活动，如出门、回家、散步等"
+            },
+            {
+              "value": "resident_carry",
+              "label": "居民+对象",
+              "description": "居民与类包裹对象的交互行为"
+            }
+          ],
+          "priority": "normal"
+        },
+        {
+          "name": "person_action",
+          "label": "交互行为",
+          "description": "人与当前标注物体之间的直接交互行为（不描述与物体无关的画面行为）",
+          "type": "single_select",
+          "options": [
+            {
+              "value": "manipulating",
+              "label": "交互",
+              "description": "人的行为是与物体交互，强调对物体状态的改变"
+            },
+            {
+              "value": "carrying",
+              "label": "携带",
+              "description": "与物体交互，强调点是随人移动、夹带、遮挡等状态"
+            },
+            {
+              "value": "none",
+              "label": "无交互",
+              "description": "无任何人与物品的交互行为"
+            }
+          ],
+          "priority": "normal"
+        },
+        {
+          "name": "object_type",
+          "label": "类型",
+          "description": "这个物体客观来说是什么？",
+          "type": "multi_select",
+          "options": [
+            {
+              "value": "cardboard_box",
+              "label": "瓦楞纸箱",
+              "description": "瓦楞纸箱，规则直角，硬质不变形"
+            },
+            {
+              "value": "takeout_bag",
+              "label": "外卖",
+              "description": "外卖纸袋/塑料袋，底部方形撑开，有提手"
+            },
+            {
+              "value": "poly_mailer",
+              "label": "快递软包",
+              "description": "快递塑料软袋/气泡袋，扁平柔软"
+            },
+            {
+              "value": "woven_bag",
+              "label": "编织袋",
+              "description": "编织袋，编织纹理明显，颜色鲜艳"
+            },
+            {
+              "value": "envelope",
+              "label": "文件袋",
+              "description": "文件信封，极扁平，边缘锐利"
+            },
+            {
+              "value": "backpack",
+              "label": "背包",
+              "description": "双肩背包，有背带和拉链"
+            },
+            {
+              "value": "storage_bin",
+              "label": "收纳箱",
+              "description": "塑料收纳箱/周转箱，半透明或纯色"
+            },
+            {
+              "value": "bag",
+              "label": "袋子",
+              "description": "各种袋子（合并原 trash_bag/shopping_bag/laundry_bag），包括垃圾袋、购物袋、洗衣袋等柔软无固定形态的袋子"
+            },
+            {
+              "value": "food_delivery_box",
+              "label": "食品运输箱",
+              "description": "食品运输箱/保温箱，形状像纸箱但实际是餐饮用途"
+            },
+            {
+              "value": "ambiguous_object",
+              "label": "不知道是什么",
+              "description": "人眼都无法判断是什么的物体"
+            }
+          ],
+          "priority": "normal"
+        },
+        {
+          "name": "is_package",
+          "label": "是纸箱",
+          "description": "这是不是真正的包裹/快递纸箱？\n\n== 是（true）==\n需要模型检测出来的快递纸箱。\n- 门口/地面/台阶上的瓦楞纸箱 → true\n- 正在被快递员投递/放下的纸箱 → true\n- 居民收件后暂时放在门口的纸箱 → true\n\n== 否（false）==\n像纸箱但实际不是，或业务上不算包裹。\n- 外卖袋/外卖纸袋 → false（业务定义：不算包裹）\n- 快递塑料软袋 (poly_mailer) → false（非纸箱形态）\n- 编织袋 → false（非纸箱形态）\n- 信封 → false（非纸箱形态）\n- 各类袋子（购物袋/垃圾袋/洗衣袋）→ false\n- 食品运输箱 → false（非快递用途）\n- 背包 → false（个人物品）\n- 收纳箱 → false（非快递用途）\n\n== 标注判断技巧 ==\n1. 这客观上是不是纸箱？→ 不是纸箱直接 false\n2. 是纸箱，但用途是不是快递？→ 如果看起来是快递纸箱，标 true\n3. 不确定是不是纸箱，但模型可能把它当纸箱？→ 标 false（作为 Hard Negative）",
+          "type": "boolean",
+          "options": [],
+          "priority": "normal"
+        },
+        {
+          "name": "size_category",
+          "label": "大小",
+          "description": "相对尺寸（基于画面比例）\n- small: < 画面 10%\n- medium: 10%-30%\n- large: 30%-60%\n- extra_large: > 60%",
+          "type": "single_select",
+          "options": [
+            {
+              "value": "small",
+              "label": "small",
+              "description": ""
+            },
+            {
+              "value": "medium",
+              "label": "medium",
+              "description": ""
+            },
+            {
+              "value": "large",
+              "label": "large",
+              "description": ""
+            },
+            {
+              "value": "extra_large",
+              "label": "extra_large",
+              "description": ""
+            }
+          ],
+          "priority": "normal"
+        }
+      ],
+      "quality": {
+        "label": "",
+        "description": "记录每个实例的客观采集条件和视觉状态。这些状态 + object_type + size_category → 后处理归因时按任意维度聚合，无需预判\"模型为什么失败\"。",
+        "include": "归因示例（后处理时按维度聚合，不是标注时判断）：\n- 按 occlusion=heavy 聚合 → 看模型在严重遮挡下 mAP 是否断崖\n- 按 blur=heavy + lighting=dim 聚合 → 看叠加效应\n- 按 background_clutter=true + object_type=cardboard_box 聚合 → 看纸箱在杂乱背景下是否漏检\n- 按 object_type in (takeout_bag, bag, food_delivery_box) + is_package=false 聚合 → 看哪些负样本最容易产生 FP",
+        "exclude": "",
+        "geometry": {
+          "type": "classification",
+          "label": "分类"
+        },
+        "attributes": [
+          {
+            "name": "occlusion",
+            "label": "遮挡",
+            "description": "none  目标主体基本完整可见。  partial  部分被挡，但主体结构仍可明确辨认。  例如：  遮挡 < 50% 还能明显看出是纸箱  heavy  大面积遮挡，需要猜测才能判断。  例如：  遮挡 > 50% 仅露出一角 与背景严重重叠",
+            "type": "single_select",
+            "options": [
+              {
+                "value": "none",
+                "label": "none",
+                "description": ""
+              },
+              {
+                "value": "partial",
+                "label": "partial",
+                "description": ""
+              },
+              {
+                "value": "heavy",
+                "label": "heavy",
+                "description": ""
+              }
+            ],
+            "priority": "normal"
+          },
+          {
+            "name": "blur",
+            "label": "模糊",
+            "description": "clear  边缘清晰，正常识别。  slight  有轻微运动模糊、压缩模糊，但仍容易识别。  heavy  明显糊，需要猜测。  例如：  夜间拖影 严重失焦 视频压缩块",
+            "type": "single_select",
+            "options": [
+              {
+                "value": "clear",
+                "label": "clear",
+                "description": ""
+              },
+              {
+                "value": "slight",
+                "label": "slight",
+                "description": ""
+              },
+              {
+                "value": "heavy",
+                "label": "heavy",
+                "description": ""
+              }
+            ],
+            "priority": "normal"
+          },
+          {
+            "name": "lighting",
+            "label": "光照",
+            "description": "normal  目标清晰可辨，曝光正常。  dim  偏暗，细节丢失。 包括：  夜间 阴影 昏暗走廊  harsh  强光影响识别。  包括：  过曝 逆光 反光 阳光直射",
+            "type": "single_select",
+            "options": [
+              {
+                "value": "normal",
+                "label": "normal",
+                "description": ""
+              },
+              {
+                "value": "dim",
+                "label": "dim",
+                "description": ""
+              },
+              {
+                "value": "harsh",
+                "label": "harsh",
+                "description": ""
+              }
+            ],
+            "priority": "normal"
+          },
+          {
+            "name": "background_clutter",
+            "label": "强纹理背景",
+            "description": "背景是否存在大量杂波干扰（如地面纹理复杂/多物体堆叠/光影斑驳/背景有类似纸箱形状的物体）\ntrue: 背景杂，模型可能分不清前景和背景\nfalse: 背景干净，目标突出",
+            "type": "boolean",
+            "options": [],
+            "priority": "normal"
+          }
+        ]
+      },
+      "negative": {
+        "label": "负样本类型",
+        "description": "4 类负样本，当命中任何一个负样本值的时候，不要标注 package 正样本的信息",
+        "include": "Pure Negative（纯负样本）、Hard Negative（最重要）、Ambiguous（模糊负样本）、Open-set Negative（开放域负样本）",
+        "exclude": "",
+        "geometry": {
+          "type": "classification",
+          "label": "分类"
+        },
+        "attributes": [
+          {
+            "name": "pure_negative",
+            "label": "纯负样本",
+            "description": "定义：场景中根本不存在 package。例如：空走廊、只有人、只有车、家具、花园、草坪。",
+            "type": "boolean",
+            "options": [],
+            "priority": "high"
+          },
+          {
+            "name": "ambiguous",
+            "label": "模糊负样本",
+            "description": "例如：远处一个模糊纸箱、被遮挡的塑料袋、夜间黑色物体、半个快递箱、低分辨率目标，人都看不清。这种不要强行标正负。",
+            "type": "boolean",
+            "options": [],
+            "priority": "normal"
+          },
+          {
+            "name": "open_set_negative",
+            "label": "开放域负样本",
+            "description": "定义：完全未知的新物体。例如：奇怪异形包装、新型配送机器人容器、国外特殊物流袋、从未见过的包装形式。",
+            "type": "boolean",
+            "options": [],
+            "priority": "low"
+          }
+        ]
+      }
+    }
+  ]
+}

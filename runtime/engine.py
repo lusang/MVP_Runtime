@@ -24,7 +24,7 @@ from runtime.performance_tracker import PerformanceTracker
 from runtime.planner import Planner
 from runtime.step_executor import ExecutionResult, StepExecutor
 from runtime.template_parser import TemplateParser
-from schemas.api import AnnotationResult, AnnotationRunResponse, RuntimeTrace
+from schemas.api import AnnotationObject, AnnotationResult, AnnotationRunResponse, RuntimeTrace
 from schemas.pipeline_plan import PipelinePlan
 from storage.io import assert_path_exists, read_json_dict
 
@@ -163,15 +163,50 @@ class RuntimeEngine:
         # --- Build AnnotationResult (clean, for annotation platforms) ---
         merge_objects = result.merge_result.get("objects", [])
         annotation_objects = []
-        for i, candidate in enumerate(result.candidates):
-            panel = merge_objects[i] if i < len(merge_objects) else None
-            anno_obj = ObjectStateBuilder.build_annotation_object(
-                candidate=candidate,
-                object_name=parsed.object_name,
-                merge_panel=panel,
-                scene_pure_negative=result.scene_pure_negative,
-            )
-            annotation_objects.append(anno_obj)
+
+        if result.candidates:
+            # Normal path: candidates exist → build annotation per candidate
+            for i, candidate in enumerate(result.candidates):
+                panel = merge_objects[i] if i < len(merge_objects) else None
+                anno_obj = ObjectStateBuilder.build_annotation_object(
+                    candidate=candidate,
+                    object_name=parsed.object_name,
+                    merge_panel=panel,
+                    scene_pure_negative=result.scene_pure_negative,
+                )
+                annotation_objects.append(anno_obj)
+        elif merge_objects:
+            # Fallback path: 0 candidates but merge produced scene-level objects
+            for obj in merge_objects:
+                qual = obj.get("quality", {})
+                neg = obj.get("negative_flags", {})
+                attrs = {}
+                # Flatten all attribute dicts (semantic, quality) to their .value
+                raw_attrs = obj.get("attributes", {})
+                for src in (raw_attrs, qual):
+                    for k, v in src.items():
+                        if isinstance(v, dict):
+                            val = v.get("value")
+                            if val is not None:
+                                attrs[k] = val
+                for k, v in neg.items():
+                    if isinstance(v, dict):
+                        val = v.get("value")
+                        if val is not None:
+                            attrs[f"neg_{k}"] = val
+
+                confidence = obj.get("confidence", 0.0) or obj.get("merge_confidence", 0.0)
+                is_positive = obj.get("is_positive", False)
+                status = "accepted" if is_positive else "rejected"
+
+                anno_obj = AnnotationObject(
+                    bbox=[0.0, 0.0, 0.0, 0.0],
+                    category=parsed.object_name,
+                    attributes=attrs,
+                    confidence=round(float(confidence), 4),
+                    status=status,
+                )
+                annotation_objects.append(anno_obj)
 
         annotation_result = AnnotationResult(
             image=image_path,

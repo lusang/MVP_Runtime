@@ -1,0 +1,39 @@
+{
+  "annotation_id": "fd9e6fff-570f-446e-a670-c06de9417261",
+  "asset_id": "07c004fc-9433-4d10-8748-134869c6d3ac",
+  "file_path": "C:\\Users\\Administrator\\Documents\\01_SECURITY_ASSETS\\_imported\\45e46d57f1a7407591a57214ed47ead0\\neg\\fa8fb35cc64630ef9d6a488bc3a2d2d1.jpeg",
+  "file_name": "fa8fb35cc64630ef9d6a488bc3a2d2d1.jpeg",
+  "project_name": "包裹识别",
+  "template_project_name": "包裹识别",
+  "template_schema_version": "v9",
+  "annotationa_stage": "annotated",
+  "data_split": "p0",
+  "task_type": null,
+  "annotator": "陶醉",
+  "object_tags": [
+    "none"
+  ],
+  "created_at": "2026-05-20T16:37:40.099817+08:00",
+  "ground_truth": {
+    "objects": [
+      {
+        "name": "objects",
+        "quality": {
+          "blur": "slight",
+          "lighting": "normal",
+          "occlusion": "none"
+        },
+        "negative": {},
+        "attributes": {
+          "scenario": "delivery",
+          "object_type": [
+            "envelope",
+            "ambiguous_object"
+          ],
+          "person_action": "carrying",
+          "size_category": "medium"
+        }
+      }
+    ]
+  }
+}

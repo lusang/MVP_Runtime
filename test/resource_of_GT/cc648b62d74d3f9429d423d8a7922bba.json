@@ -1,0 +1,38 @@
+{
+  "annotation_id": "f9a376dd-f4b8-4d97-b0d4-6432a399831b",
+  "asset_id": "5963f32b-2e73-4d73-9714-3663760f677b",
+  "file_path": "C:\\Users\\Administrator\\Documents\\01_SECURITY_ASSETS\\_imported\\45e46d57f1a7407591a57214ed47ead0\\neg\\cc648b62d74d3f9429d423d8a7922bba.jpeg",
+  "file_name": "cc648b62d74d3f9429d423d8a7922bba.jpeg",
+  "project_name": "包裹识别",
+  "template_project_name": "包裹识别",
+  "template_schema_version": "v9",
+  "annotationa_stage": "annotated",
+  "data_split": "p0",
+  "task_type": null,
+  "annotator": "陶醉",
+  "object_tags": [
+    "none"
+  ],
+  "created_at": "2026-05-20T16:37:40.099817+08:00",
+  "ground_truth": {
+    "objects": [
+      {
+        "name": "objects",
+        "quality": {
+          "blur": "slight",
+          "lighting": "normal",
+          "occlusion": "partial"
+        },
+        "negative": {},
+        "attributes": {
+          "scenario": "resident",
+          "object_type": [
+            "woven_bag"
+          ],
+          "person_action": "manipulating",
+          "size_category": "medium"
+        }
+      }
+    ]
+  }
+}

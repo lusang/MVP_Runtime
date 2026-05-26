@@ -36,6 +36,7 @@ class GeminiMerger:
         parsed: ParsedTaskSpec,
         candidates_data: list[dict[str, Any]],
         scene_pure_negative: bool = False,
+        scene_fallback: dict[str, Any] | None = None,
         run_id: str = "",
         execution_log_text: str = "",
     ) -> dict[str, Any]:
@@ -44,4 +45,5 @@ class GeminiMerger:
             parsed=parsed,
             candidates_data=candidates_data,
             scene_pure_negative=scene_pure_negative,
+            scene_fallback=scene_fallback,
         )

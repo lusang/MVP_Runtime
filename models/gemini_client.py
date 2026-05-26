@@ -363,6 +363,18 @@ class GeminiClient:
             options=json.dumps(options, ensure_ascii=False) if options else "N/A",
         )
 
+        # For multi_select, adjust response format to ask for ALL matching values
+        if attribute_type == "multi_select":
+            prompt = prompt.replace(
+                '{"value": <exact option from the list, or null>, "confidence": 0.0 to 1.0}',
+                '{"value": [<all matching options from the list>], "confidence": 0.0 to 1.0}',
+            ) + (
+                "\n\nCRITICAL: This attribute accepts MULTIPLE values simultaneously. "
+                "Return ONLY values you are highly confident about. "
+                "When uncertain, prefer returning FEWER values over more. "
+                "If no options match convincingly, return an empty array []."
+            )
+
         try:
             raw = await asyncio.to_thread(
                 _gemini_generate, self._model_id, prompt, image_path, self._timeout

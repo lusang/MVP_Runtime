@@ -2,16 +2,9 @@
 StepGraphBuilder (Stage 3) — builds a complete PipelinePlan from per-attribute
 runtime parameters.
 
-Responsibilities:
-  1. Lay down the fixed topology skeleton (Runtime Invariant)
-  2. Group attributes by (scope, data_flow, handler) → merged steps
-  3. Assign grouped attributes to topology slots
-  4. Set early-exit rules (pure_negative)
-  5. Set skip conditions (empty candidates, scene-level gate)
-  6. Output a validated PipelinePlan
-
-Runtime Invariant (hardcoded, never changes):
-  scene_neg → detect → nms → verify → quality → semantic → negative → merge
+Two topology modes:
+  use_detector=True  (default): scene_neg → detect → nms → verify → per_candidate attributes → merge
+  use_detector=False:           scene_neg → full_quality → full_attribute → full_negative → merge
 """
 
 from __future__ import annotations
@@ -31,12 +24,15 @@ class StepGraphBuilder:
         self,
         parsed: ParsedTaskSpec,
         attribute_params: list[AttributeRuntimeParams],
+        use_detector: bool = True,
     ) -> PipelinePlan:
         """Build a PipelinePlan from parsed template and resolved attribute params.
 
         Args:
-            parsed: The parsed template spec (used for object_name, pure_negative flag).
+            parsed: The parsed template spec.
             attribute_params: Resolved runtime params for each attribute.
+            use_detector: If True, generate detection-driven topology (YOLO + per-candidate).
+                          If False, generate full-image analysis topology (Gemini on full image).
 
         Returns:
             A complete PipelinePlan ready for execution.
@@ -45,13 +41,12 @@ class StepGraphBuilder:
         order = 0
 
         # Detect pure_negative presence (triggers scene-level step + early_exit)
-        # Handles both "Pure Negative" (Template.json) and "pure_negative" (fixture)
         has_pure_negative = any(
             a.enabled and a.name.lower().replace(" ", "_") == "pure_negative"
             for a in parsed.negative_attributes
         )
 
-        # ── 1. Scene-level negative pre-check ───────────────────────
+        # ── 1. Scene-level negative pre-check (both modes) ───────────
         if has_pure_negative:
             steps.append(self._make_step(
                 step="negative",
@@ -64,48 +59,62 @@ class StepGraphBuilder:
             ))
             order += 1
 
-        # ── 2. Detection ────────────────────────────────────────────
+        if use_detector:
+            self._build_detector_topology(parsed, attribute_params, steps, order,
+                                          has_pure_negative)
+        else:
+            self._build_fullimage_topology(parsed, attribute_params, steps, order,
+                                           has_pure_negative)
+
+        return PipelinePlan(
+            plan_id=str(uuid.uuid4()),
+            object_name=parsed.object_name,
+            steps=steps,
+            early_exit_rules=self._early_exit_rules(has_pure_negative),
+            skip_conditions=self._skip_conditions(use_detector, has_pure_negative,
+                                                   attribute_params),
+            planner_model="StepGraphBuilder",
+            planner_version="2.0",
+        )
+
+    # ── Topology: detector-driven (current) ─────────────────────────
+
+    def _build_detector_topology(
+        self,
+        parsed: ParsedTaskSpec,
+        attribute_params: list[AttributeRuntimeParams],
+        steps: list[PlanStep],
+        order: int,
+        has_pure_negative: bool,
+    ) -> None:
+        # 2. Detection
         steps.append(self._make_step(
-            step="detect",
-            model_id="yolo-world-v2-x",
-            data_flow=DataFlow.FULL,
-            order=order,
-            per_candidate=False,
+            step="detect", model_id="yolo-world-v2-x",
+            data_flow=DataFlow.FULL, order=order, per_candidate=False,
         ))
         order += 1
 
-        # ── 3. NMS ──────────────────────────────────────────────────
+        # 3. NMS
         steps.append(self._make_step(
-            step="nms",
-            model_id="rule-engine",
-            data_flow=DataFlow.FULL,
-            order=order,
-            per_candidate=False,
+            step="nms", model_id="rule-engine",
+            data_flow=DataFlow.FULL, order=order, per_candidate=False,
             params={"iou_threshold": 0.5},
         ))
         order += 1
 
-        # ── 4. Verification ─────────────────────────────────────────
+        # 4. Verification
         steps.append(self._make_step(
-            step="verify",
-            model_id="gemini-2.0-flash",
-            data_flow=DataFlow.CROP,
-            order=order,
-            per_candidate=True,
+            step="verify", model_id="gemini-2.0-flash",
+            data_flow=DataFlow.CROP, order=order, per_candidate=True,
         ))
         order += 1
 
-        # ── 5-7. Attribute steps (grouped by scope → data_flow → handler) ──
-
-        # Filter out pure_negative from normal attribute processing —
-        # the scene-level step was already added above.
+        # 5-7. Per-candidate attribute steps
         filtered_params = [
             p for p in attribute_params
             if not (p.scope == "negative"
                     and p.attribute_key.lower().replace(" ", "_") == "pure_negative")
         ]
-
-        # Group params by (scope, data_flow, handler)
         grouped = self._group_attributes(filtered_params)
 
         for scope in ("quality", "semantic", "negative"):
@@ -114,85 +123,189 @@ class StepGraphBuilder:
             for group_key, params_list in grouped[scope].items():
                 data_flow_str, handler = group_key
                 data_flow = DataFlow(data_flow_str)
-                attribute_keys = [p.attribute_key for p in params_list]
-
-                # quality uses step_type="quality"; negative uses "negative"
-                if scope == "quality":
-                    step_type = "quality"
-                elif scope == "negative":
-                    step_type = "negative"
-                else:
-                    step_type = "attribute"
-
-                # Determine model_id (use the highest-stakes one if mixed)
+                step_type = "quality" if scope == "quality" else ("negative" if scope == "negative" else "attribute")
                 model_id = self._pick_model_id(params_list)
-
                 steps.append(self._make_step(
-                    step=step_type,
-                    model_id=model_id,
-                    data_flow=data_flow,
-                    order=order,
+                    step=step_type, model_id=model_id,
+                    data_flow=data_flow, order=order,
                     per_candidate=params_list[0].per_candidate,
                     scope=scope,
-                    params={"attribute_keys": attribute_keys},
+                    params={"attribute_keys": [p.attribute_key for p in params_list]},
                 ))
                 order += 1
 
-        # ── 8. Merge ────────────────────────────────────────────────
+        # 8. Scene-level fallback (0-detection safety net)
+        self._add_fallback_steps(attribute_params, steps, order)
+
+    # ── Topology: full-image analysis (no detector) ─────────────────
+
+    def _build_fullimage_topology(
+        self,
+        parsed: ParsedTaskSpec,
+        attribute_params: list[AttributeRuntimeParams],
+        steps: list[PlanStep],
+        order: int,
+        has_pure_negative: bool,
+    ) -> None:
+        # Filter out pure_negative (handled by scene-level step above)
+        filtered_params = [
+            p for p in attribute_params
+            if not (p.scope == "negative"
+                    and p.attribute_key.lower().replace(" ", "_") == "pure_negative")
+        ]
+
+        # Collect attributes by scope — force data_flow=full_image for all
+        quality_keys = sorted({p.attribute_key for p in filtered_params if p.scope == "quality"})
+        semantic_keys = sorted({p.attribute_key for p in filtered_params if p.scope == "semantic"})
+        negative_keys = sorted({p.attribute_key for p in filtered_params if p.scope == "negative"})
+
+        if quality_keys:
+            steps.append(self._make_step(
+                step="full_quality",
+                model_id="gemini-2.0-flash",
+                data_flow=DataFlow.FULL,
+                order=order,
+                per_candidate=False,
+                scope="quality",
+                params={"attribute_keys": quality_keys},
+            ))
+            order += 1
+
+        if semantic_keys:
+            steps.append(self._make_step(
+                step="full_attribute",
+                model_id="gemini-2.5-pro",
+                data_flow=DataFlow.FULL,
+                order=order,
+                per_candidate=False,
+                scope="semantic",
+                params={"attribute_keys": semantic_keys},
+            ))
+            order += 1
+
+        if negative_keys:
+            steps.append(self._make_step(
+                step="full_negative",
+                model_id="gemini-2.0-flash",
+                data_flow=DataFlow.FULL,
+                order=order,
+                per_candidate=False,
+                scope="negative",
+                params={"attribute_keys": negative_keys},
+            ))
+            order += 1
+
+        # Merge (last)
         steps.append(self._make_step(
-            step="merge",
-            model_id="gemini-2.0-flash",
-            data_flow=DataFlow.FULL,
-            order=order,
-            per_candidate=False,
+            step="merge", model_id="gemini-2.0-flash",
+            data_flow=DataFlow.FULL, order=order, per_candidate=False,
         ))
 
-        # ── Early exit rules ────────────────────────────────────────
-        early_exit_rules: list[EarlyExitRule] = []
+    # ── Fallback steps (detector mode, 0-detection safety net) ──────
+
+    def _add_fallback_steps(
+        self,
+        attribute_params: list[AttributeRuntimeParams],
+        steps: list[PlanStep],
+        order: int,
+    ) -> None:
+        filtered_params = [
+            p for p in attribute_params
+            if not (p.scope == "negative"
+                    and p.attribute_key.lower().replace(" ", "_") == "pure_negative")
+        ]
+        fb_quality = [p for p in filtered_params if p.scope == "quality" and p.data_flow == "full_image"]
+        fb_negative = [p for p in filtered_params if p.scope == "negative"]
+
+        if fb_quality:
+            steps.append(self._make_step(
+                step="quality_fallback",
+                model_id=self._pick_model_id(fb_quality),
+                data_flow=DataFlow.FULL, order=order,
+                per_candidate=False, scope="quality",
+                params={"attribute_keys": [p.attribute_key for p in fb_quality]},
+            ))
+            order += 1
+
+        if fb_negative:
+            steps.append(self._make_step(
+                step="negative_fallback",
+                model_id=self._pick_model_id(fb_negative),
+                data_flow=DataFlow.FULL, order=order,
+                per_candidate=False, scope="negative",
+                params={"attribute_keys": [p.attribute_key for p in fb_negative]},
+            ))
+            order += 1
+
+        # Merge (last)
+        steps.append(self._make_step(
+            step="merge", model_id="gemini-2.0-flash",
+            data_flow=DataFlow.FULL, order=order, per_candidate=False,
+        ))
+
+    # ── Rules & conditions ──────────────────────────────────────────
+
+    @staticmethod
+    def _early_exit_rules(has_pure_negative: bool) -> list[EarlyExitRule]:
+        rules: list[EarlyExitRule] = []
         if has_pure_negative:
-            early_exit_rules.append(EarlyExitRule(
+            rules.append(EarlyExitRule(
                 condition="scene_pure_negative",
                 reason="scene confirmed pure negative — no target object present",
             ))
+        return rules
 
-        # ── Skip conditions ─────────────────────────────────────────
-        skip_conditions: list[SkipCondition] = []
+    def _skip_conditions(
+        self,
+        use_detector: bool,
+        has_pure_negative: bool,
+        attribute_params: list[AttributeRuntimeParams],
+    ) -> list[SkipCondition]:
+        conditions: list[SkipCondition] = []
 
-        # Skip per-candidate negative steps when scene-level pure_negative confirmed
-        if has_pure_negative:
-            skip_conditions.append(SkipCondition(
-                step="negative",
-                condition="scene_pure_negative",
-                reason="Pure Negative already confirmed at scene level",
+        if use_detector:
+            # Skip per-candidate negative when scene-level pure_negative confirmed
+            if has_pure_negative:
+                conditions.append(SkipCondition(
+                    step="negative",
+                    condition="scene_pure_negative",
+                    reason="Pure Negative already confirmed at scene level",
+                ))
+
+            # Skip attribute/semantic when all candidates rejected
+            conditions.append(SkipCondition(
+                step="attribute",
+                condition="all(not c.exists for c in candidates)",
+                reason="all candidates rejected by verification — no targets to assess",
             ))
 
-        # Skip attribute/semantic steps when all candidates rejected
-        skip_conditions.append(SkipCondition(
-            step="attribute",
-            condition="all(not c.exists for c in candidates)",
-            reason="all candidates rejected by verification — no targets to assess",
-        ))
+            # Skip fallback steps when candidates exist
+            filtered = [
+                p for p in attribute_params
+                if not (p.scope == "negative"
+                        and p.attribute_key.lower().replace(" ", "_") == "pure_negative")
+            ]
+            if any(p.scope == "quality" and p.data_flow == "full_image" for p in filtered):
+                conditions.append(SkipCondition(
+                    step="quality_fallback",
+                    condition="len(candidates) > 0",
+                    reason="candidates exist — scene-level quality fallback not needed",
+                ))
+            if any(p.scope == "negative" for p in filtered):
+                conditions.append(SkipCondition(
+                    step="negative_fallback",
+                    condition="len(candidates) > 0",
+                    reason="candidates exist — scene-level negative fallback not needed",
+                ))
 
-        return PipelinePlan(
-            plan_id=str(uuid.uuid4()),
-            object_name=parsed.object_name,
-            steps=steps,
-            early_exit_rules=early_exit_rules,
-            skip_conditions=skip_conditions,
-            planner_model="StepGraphBuilder",
-            planner_version="2.0",
-        )
+        return conditions
 
-    # ── Internal helpers ────────────────────────────────────────────────
+    # ── Internal helpers ────────────────────────────────────────────
 
+    @staticmethod
     def _group_attributes(
-        self,
         params: list[AttributeRuntimeParams],
     ) -> dict[str, dict[tuple[str, str], list[AttributeRuntimeParams]]]:
-        """Group attribute params by (scope) → (data_flow, handler).
-
-        Returns nested dict: {scope: {(data_flow, handler): [params, ...]}}
-        """
         grouped: dict[str, dict[tuple[str, str], list[AttributeRuntimeParams]]] = (
             defaultdict(lambda: defaultdict(list))
         )
@@ -201,18 +314,15 @@ class StepGraphBuilder:
             grouped[p.scope][key].append(p)
         return dict(grouped)
 
-    def _pick_model_id(self, params_list: list[AttributeRuntimeParams]) -> str:
-        """Pick the best model_id from a group of attributes.
-
-        Uses the most capable model in the group (prefer pro over flash).
-        """
+    @staticmethod
+    def _pick_model_id(params_list: list[AttributeRuntimeParams]) -> str:
         model_ids = {p.model_id for p in params_list}
         if "gemini-2.5-pro" in model_ids:
             return "gemini-2.5-pro"
         return "gemini-2.0-flash"
 
+    @staticmethod
     def _make_step(
-        self,
         *,
         step: str,
         model_id: str,
