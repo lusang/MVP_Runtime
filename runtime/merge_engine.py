@@ -5,9 +5,9 @@ Replaces the Gemini-driven merge path. All decision rules that were previously
 embedded in _MERGE_PROMPT are now implemented in code:
 
   - If verification rejects → object is negative (is_positive=false)
-  - If any hard negative flag is triggered → object is negative
+  - If any hard negative flag is triggered → merge_conf is penalized (-0.10)
   - If Pure Negative scene check was positive → all objects are negative
-  - If detector and verification both accept AND no negative flags → is_positive=true
+  - is_positive = verif_ok AND merge_conf > 0.3 (threshold-based, no hard overrides)
   - merge_confidence = weighted combination of upstream scores + adjustments
   - Attribute conflicts resolved across candidates by highest confidence
 """
@@ -15,6 +15,8 @@ embedded in _MERGE_PROMPT are now implemented in code:
 from __future__ import annotations
 
 import json
+import math
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -142,12 +144,13 @@ class MergeEngine:
 
             merge_conf = max(0.0, min(1.0, merge_conf))
 
-            # --- Classification ---
-            is_positive = verif_ok
+            # --- Classification (threshold-based, no hard override) ---
+            # Negative flags already penalize merge_conf (-0.10) above.
+            # is_positive requires verif_ok AND sufficient penalized confidence.
+            is_positive = verif_ok and merge_conf > 0.3
             neg_category: str | None = None
             for nk, nv in neg.items():
                 if isinstance(nv, dict) and nv.get("value") is True:
-                    is_positive = False
                     neg_category = str(nv.get("attribute_name", nk))
                     break
 
@@ -200,21 +203,42 @@ class MergeEngine:
             })
 
         # --- Attribute conflict resolution across positive candidates ---
-        resolved_attributes: dict[str, dict[str, Any]] = {}
+        # Collect all votes, then resolve with conflict trace
+        raw_votes: dict[str, list[dict[str, Any]]] = {}
         for obj in objects:
             if not obj["is_positive"]:
                 continue
             for attr_key, attr_val in obj.get("attributes", {}).items():
                 if not isinstance(attr_val, dict):
                     continue
-                current_conf = attr_val.get("confidence", 0)
-                best = resolved_attributes.get(attr_key)
-                if best is None or current_conf > best.get("confidence", 0):
-                    resolved_attributes[attr_key] = {
-                        "value": attr_val.get("value"),
-                        "confidence": current_conf,
-                        "uncertain": current_conf < self._attr_threshold,
-                    }
+                raw_votes.setdefault(attr_key, []).append({
+                    "value": attr_val.get("value"),
+                    "conf": attr_val.get("confidence", 0),
+                })
+
+        resolved_attributes: dict[str, dict[str, Any]] = {}
+        for attr_key, votes in raw_votes.items():
+            if not votes:
+                continue
+            winner = max(votes, key=lambda v: v["conf"])
+            conf = winner["conf"]
+
+            # Conflict entropy (only when multiple distinct values exist)
+            str_values = [str(v["value"]) for v in votes if v["value"] is not None]
+            if len(set(str_values)) > 1 and len(str_values) > 1:
+                counts = Counter(str_values)
+                total = len(str_values)
+                entropy = -sum((c / total) * math.log2(c / total) for c in counts.values())
+            else:
+                entropy = 0.0
+
+            resolved_attributes[attr_key] = {
+                "value": winner["value"],
+                "confidence": conf,
+                "uncertain": conf < self._attr_threshold,
+                "candidates": votes,
+                "entropy": round(entropy, 4),
+            }
 
         trace.append({
             "step": "merge",

@@ -586,7 +586,8 @@ class StepExecutor:
         merge_result = await self._merger.merge(
             image_path=image_path,
             parsed=parsed,
-            candidates_data=[c.to_dict() for c in state.candidates],
+            candidates_data=[c.to_dict() for c in state.candidates
+                                if c.state is not CandidateState.SUPPRESSED],
             scene_pure_negative=state.scene_flags.get("pure_negative", False),
             run_id=run_id,
             execution_log_text="\n".join(ctx.execution_log_lines),

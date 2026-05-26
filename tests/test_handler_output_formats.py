@@ -68,7 +68,7 @@ def test_image():
         TEMP_IMG.unlink()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def engine() -> RuntimeEngine:
     return build_container().runtime_engine
 
