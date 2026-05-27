@@ -25,6 +25,7 @@ class OpenCVQualityPlugin:
         parsed_template: ParsedTaskSpec,
         object_id: str,
         spec: TemplateAttributeSpec,
+        model_id: str | None = None,
     ) -> dict[str, Any]:
         if spec.scope != "quality":
             raise ValueError(f"OpenCVQualityPlugin expected quality scope, got {spec.scope!r}")

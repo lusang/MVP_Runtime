@@ -22,6 +22,12 @@ class AttributeHandlerPlugin(Protocol):
         parsed_template: ParsedTaskSpec,
         object_id: str,
         spec: TemplateAttributeSpec,
+        model_id: str | None = None,
     ) -> dict[str, Any]:
-        """Return a JSON-serializable fragment for the given attribute slot."""
+        """Return a JSON-serializable fragment for the given attribute slot.
+
+        Args:
+            model_id: Optional model override from Planner resolution. When None,
+                      the handler's default model (e.g. GEMINI_MODEL env var) is used.
+        """
         ...

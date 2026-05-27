@@ -109,12 +109,13 @@ class StepGraphBuilder:
         ))
         order += 1
 
-        # 5-7. Per-candidate attribute steps
+        # 5-7. Per-candidate attribute steps (Planner-resolved handlers + models)
         filtered_params = [
             p for p in attribute_params
             if not (p.scope == "negative"
                     and p.attribute_key.lower().replace(" ", "_") == "pure_negative")
         ]
+        handler_map, model_map = self._build_handler_maps(filtered_params)
         grouped = self._group_attributes(filtered_params)
 
         for scope in ("quality", "semantic", "negative"):
@@ -125,12 +126,17 @@ class StepGraphBuilder:
                 data_flow = DataFlow(data_flow_str)
                 step_type = "quality" if scope == "quality" else ("negative" if scope == "negative" else "attribute")
                 model_id = self._pick_model_id(params_list)
+                keys = [p.attribute_key for p in params_list]
                 steps.append(self._make_step(
                     step=step_type, model_id=model_id,
                     data_flow=data_flow, order=order,
                     per_candidate=params_list[0].per_candidate,
                     scope=scope,
-                    params={"attribute_keys": [p.attribute_key for p in params_list]},
+                    params={
+                        "attribute_keys": keys,
+                        "handler_map": {k: handler_map[k] for k in keys},
+                        "model_map": {k: model_map[k] for k in keys},
+                    },
                 ))
                 order += 1
 
@@ -153,6 +159,7 @@ class StepGraphBuilder:
             if not (p.scope == "negative"
                     and p.attribute_key.lower().replace(" ", "_") == "pure_negative")
         ]
+        handler_map, model_map = self._build_handler_maps(filtered_params)
 
         # Collect attributes by scope — force data_flow=full_image for all
         quality_keys = sorted({p.attribute_key for p in filtered_params if p.scope == "quality"})
@@ -162,36 +169,48 @@ class StepGraphBuilder:
         if quality_keys:
             steps.append(self._make_step(
                 step="full_quality",
-                model_id="gemini-2.0-flash",
+                model_id=model_map.get(quality_keys[0], "gemini-2.0-flash"),
                 data_flow=DataFlow.FULL,
                 order=order,
                 per_candidate=False,
                 scope="quality",
-                params={"attribute_keys": quality_keys},
+                params={
+                    "attribute_keys": quality_keys,
+                    "handler_map": {k: handler_map[k] for k in quality_keys},
+                    "model_map": {k: model_map[k] for k in quality_keys},
+                },
             ))
             order += 1
 
         if semantic_keys:
             steps.append(self._make_step(
                 step="full_attribute",
-                model_id="gemini-2.5-pro",
+                model_id=model_map.get(semantic_keys[0], "gemini-2.5-pro"),
                 data_flow=DataFlow.FULL,
                 order=order,
                 per_candidate=False,
                 scope="semantic",
-                params={"attribute_keys": semantic_keys},
+                params={
+                    "attribute_keys": semantic_keys,
+                    "handler_map": {k: handler_map[k] for k in semantic_keys},
+                    "model_map": {k: model_map[k] for k in semantic_keys},
+                },
             ))
             order += 1
 
         if negative_keys:
             steps.append(self._make_step(
                 step="full_negative",
-                model_id="gemini-2.0-flash",
+                model_id=model_map.get(negative_keys[0], "gemini-2.0-flash"),
                 data_flow=DataFlow.FULL,
                 order=order,
                 per_candidate=False,
                 scope="negative",
-                params={"attribute_keys": negative_keys},
+                params={
+                    "attribute_keys": negative_keys,
+                    "handler_map": {k: handler_map[k] for k in negative_keys},
+                    "model_map": {k: model_map[k] for k in negative_keys},
+                },
             ))
             order += 1
 
@@ -214,26 +233,37 @@ class StepGraphBuilder:
             if not (p.scope == "negative"
                     and p.attribute_key.lower().replace(" ", "_") == "pure_negative")
         ]
+        handler_map, model_map = self._build_handler_maps(filtered_params)
         fb_quality = [p for p in filtered_params if p.scope == "quality" and p.data_flow == "full_image"]
         fb_negative = [p for p in filtered_params if p.scope == "negative"]
 
         if fb_quality:
+            keys = [p.attribute_key for p in fb_quality]
             steps.append(self._make_step(
                 step="quality_fallback",
                 model_id=self._pick_model_id(fb_quality),
                 data_flow=DataFlow.FULL, order=order,
                 per_candidate=False, scope="quality",
-                params={"attribute_keys": [p.attribute_key for p in fb_quality]},
+                params={
+                    "attribute_keys": keys,
+                    "handler_map": {k: handler_map[k] for k in keys},
+                    "model_map": {k: model_map[k] for k in keys},
+                },
             ))
             order += 1
 
         if fb_negative:
+            keys = [p.attribute_key for p in fb_negative]
             steps.append(self._make_step(
                 step="negative_fallback",
                 model_id=self._pick_model_id(fb_negative),
                 data_flow=DataFlow.FULL, order=order,
                 per_candidate=False, scope="negative",
-                params={"attribute_keys": [p.attribute_key for p in fb_negative]},
+                params={
+                    "attribute_keys": keys,
+                    "handler_map": {k: handler_map[k] for k in keys},
+                    "model_map": {k: model_map[k] for k in keys},
+                },
             ))
             order += 1
 
@@ -313,6 +343,15 @@ class StepGraphBuilder:
             key = (p.data_flow, p.handler)
             grouped[p.scope][key].append(p)
         return dict(grouped)
+
+    @staticmethod
+    def _build_handler_maps(
+        attribute_params: list[AttributeRuntimeParams],
+    ) -> tuple[dict[str, str], dict[str, str]]:
+        """Build per-attribute handler and model maps from Planner-resolved params."""
+        handler_map = {p.attribute_key: p.handler for p in attribute_params}
+        model_map = {p.attribute_key: p.model_id for p in attribute_params}
+        return handler_map, model_map
 
     @staticmethod
     def _pick_model_id(params_list: list[AttributeRuntimeParams]) -> str:

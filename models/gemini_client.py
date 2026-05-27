@@ -351,7 +351,9 @@ class GeminiClient:
         scope: str,
         object_id: str,
         run_id: str = "",
+        model_id: str | None = None,
     ) -> dict[str, Any]:
+        effective_model = model_id or self._model_id
         template_name = "verify_negative_attribute" if scope == "negative" else "verify_attribute"
         default_prompt = _VERIFY_NEGATIVE_ATTRIBUTE_PROMPT if scope == "negative" else _VERIFY_ATTRIBUTE_PROMPT
         prompt = PromptManager.load(template_name, default=default_prompt)
@@ -377,7 +379,7 @@ class GeminiClient:
 
         try:
             raw = await asyncio.to_thread(
-                _gemini_generate, self._model_id, prompt, image_path, self._timeout
+                _gemini_generate, effective_model, prompt, image_path, self._timeout
             )
             parsed = _extract_json(raw)
             raw_value = parsed.get("value")

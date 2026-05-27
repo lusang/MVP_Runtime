@@ -25,6 +25,7 @@ class GeminiNegativePlugin:
         parsed_template: ParsedTaskSpec,
         object_id: str,
         spec: TemplateAttributeSpec,
+        model_id: str | None = None,
     ) -> dict[str, Any]:
         if spec.scope != "negative":
             raise ValueError(f"GeminiNegativePlugin expected negative scope, got {spec.scope!r}")
@@ -38,4 +39,5 @@ class GeminiNegativePlugin:
             options=spec.options,
             description=spec.description,
             scope=spec.scope,
+            model_id=model_id,
         )

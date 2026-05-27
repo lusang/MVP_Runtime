@@ -46,6 +46,8 @@ class AttributeHandler:
         include_keys: frozenset[str] | None = None,
         scopes: set[str] | None = None,
         handler_override: dict[str, str] | None = None,
+        handler_map: dict[str, str] | None = None,
+        model_map: dict[str, str] | None = None,
     ) -> AttributeStageResult:
         result = AttributeStageResult()
         buckets: dict[AttributeScope, dict[str, Any]] = {
@@ -64,10 +66,17 @@ class AttributeHandler:
             if include_keys is not None and spec.key not in include_keys:
                 continue
 
-            # Allow caller to override handler per-scope (e.g. full-image quality → Gemini)
+            # Planner-resolved handler (overrides template default)
             handler_id = spec.handler
-            if handler_override and spec.scope in handler_override:
+            if handler_map and spec.key in handler_map:
+                handler_id = handler_map[spec.key]
+            elif handler_override and spec.scope in handler_override:
                 handler_id = handler_override[spec.scope]
+
+            # Planner-resolved model_id (overrides client default)
+            model_id = None
+            if model_map and spec.key in model_map:
+                model_id = model_map[spec.key]
 
             # Negative-scope plugins receive the FULL image + original bbox for context
             if spec.scope == "negative" and full_image_path is not None:
@@ -84,6 +93,7 @@ class AttributeHandler:
                 parsed_template=parsed,
                 object_id=object_id,
                 spec=spec,
+                model_id=model_id,
             )
 
             bucket = buckets[spec.scope]

@@ -417,6 +417,8 @@ class StepExecutor:
         run_id: str,
     ) -> None:
         label = f"{step.step}:{step.model_id}"
+        _handler_map = step.params.get("handler_map", {})
+        _model_map = step.params.get("model_map", {})
         _log(state, label, "QUALITY CHECK")
         for c in state.candidates:
             if c.is_suppressed_or_rejected:
@@ -431,6 +433,8 @@ class StepExecutor:
                     parsed=parsed,
                     object_id=c.object_id,
                     scopes={"quality"},
+                    handler_map=_handler_map,
+                    model_map=_model_map,
                 )
                 c.quality = new_stage.quality
                 for kval, qitem in c.quality.items():
@@ -466,6 +470,8 @@ class StepExecutor:
         from schemas.pipeline_plan import DataFlow
 
         label = f"{step.step}:{step.model_id}"
+        _handler_map = step.params.get("handler_map", {})
+        _model_map = step.params.get("model_map", {})
         is_full = step.data_flow == DataFlow.FULL
         _log(state, label, f"SEMANTIC ATTRIBUTES ({'full_image' if is_full else 'crop'})")
 
@@ -500,6 +506,8 @@ class StepExecutor:
                     scopes={"semantic"},
                     skip_keys=skip_keys,
                     include_keys=include_keys,
+                    handler_map=_handler_map,
+                    model_map=_model_map,
                 )
                 c.attributes.update(new_stage.attributes)
 
@@ -550,6 +558,8 @@ class StepExecutor:
             return
 
         # Per-candidate negative check
+        _handler_map = step.params.get("handler_map", {})
+        _model_map = step.params.get("model_map", {})
         _log(state, label, "NEGATIVE CHECK")
         skip_keys: frozenset[str] | None = None
         if state.scene_flags.get("pure_negative", False):
@@ -575,6 +585,8 @@ class StepExecutor:
                     full_bbox=c.bbox,
                     skip_keys=skip_keys,
                     scopes={"negative"},
+                    handler_map=_handler_map,
+                    model_map=_model_map,
                 )
                 c.negative_flags.update(new_stage.negative)
 
@@ -612,6 +624,8 @@ class StepExecutor:
             object_id="scene_fallback",
             scopes={"quality"},
             include_keys=frozenset(step.params.get("attribute_keys", [])),
+            handler_map=step.params.get("handler_map", {}),
+            model_map=step.params.get("model_map", {}),
         )
         state.scene_flags["fallback_quality"] = result.quality
         _log(state, f"{step.step}:{step.model_id}", "SCENE QUALITY FALLBACK")
@@ -647,6 +661,8 @@ class StepExecutor:
             full_bbox=full_bbox,
             scopes={"negative"},
             include_keys=frozenset(step.params.get("attribute_keys", [])),
+            handler_map=step.params.get("handler_map", {}),
+            model_map=step.params.get("model_map", {}),
         )
         state.scene_flags["fallback_negative"] = result.negative
         _log(state, f"{step.step}:{step.model_id}", "SCENE NEGATIVE FALLBACK")
@@ -680,10 +696,10 @@ class StepExecutor:
             object_id="scene",
             scopes={"quality"},
             include_keys=frozenset(step.params.get("attribute_keys", [])),
-            # Note: quality intentionally uses OpenCV (handler_override not set).
-            # Gemini was evaluated but produced worse results on full images —
-            # OpenCV crop-level heuristics are more accurate for occlusion/blur/lighting.
-            # handler_override={"quality": "gemini"},
+            # handler_map/ model_map from Planner — for quality these map to "opencv_quality"
+            # unless the template attributes specifically require Gemini.
+            handler_map=step.params.get("handler_map", {}),
+            model_map=step.params.get("model_map", {}),
         )
         state.scene_flags["full_quality"] = result.quality
         _log(state, f"{step.step}:{step.model_id}", "FULL IMAGE QUALITY")
@@ -717,6 +733,8 @@ class StepExecutor:
             object_id="scene",
             scopes={"semantic"},
             include_keys=frozenset(step.params.get("attribute_keys", [])),
+            handler_map=step.params.get("handler_map", {}),
+            model_map=step.params.get("model_map", {}),
         )
         state.scene_flags["full_attributes"] = result.attributes
         _log(state, f"{step.step}:{step.model_id}", "FULL IMAGE ATTRIBUTES")
@@ -752,6 +770,8 @@ class StepExecutor:
             full_bbox=full_bbox,
             scopes={"negative"},
             include_keys=frozenset(step.params.get("attribute_keys", [])),
+            handler_map=step.params.get("handler_map", {}),
+            model_map=step.params.get("model_map", {}),
         )
         state.scene_flags["full_negative"] = result.negative
         _log(state, f"{step.step}:{step.model_id}", "FULL IMAGE NEGATIVE")

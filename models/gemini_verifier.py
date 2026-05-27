@@ -110,6 +110,7 @@ class GeminiVerifier:
         options: list[Any],
         description: str,
         scope: str,
+        model_id: str | None = None,
     ) -> dict[str, Any]:
         if _force_mock():
             default_value: Any
@@ -147,6 +148,7 @@ class GeminiVerifier:
             description=description,
             scope=scope,
             object_id=object_id,
+            model_id=model_id,
         )
         result["bbox"] = bbox.model_dump()
         return result

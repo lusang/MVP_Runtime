@@ -25,9 +25,8 @@ class GeminiAttributePlugin:
         parsed_template: ParsedTaskSpec,
         object_id: str,
         spec: TemplateAttributeSpec,
+        model_id: str | None = None,
     ) -> dict[str, Any]:
-        # Note: scope guard intentionally removed — this plugin handles
-        # quality attributes too when full-image mode overrides the handler.
         return await self._verifier.verify_attribute(
             image_path=image_path,
             bbox=bbox,
@@ -38,4 +37,5 @@ class GeminiAttributePlugin:
             options=spec.options,
             description=spec.description,
             scope=spec.scope,
+            model_id=model_id,
         )
