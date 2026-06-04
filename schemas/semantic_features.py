@@ -62,6 +62,7 @@ class AttributeCapabilities:
     data_flow: Literal["crop", "full_image"]
     required_capabilities: list[str] = field(default_factory=list)
     per_candidate: bool = True
+    layer: int = 1
 
 
 @dataclass
@@ -79,3 +80,4 @@ class AttributeRuntimeParams:
     required_capabilities: list[str] = field(default_factory=list)
     scope: str = "semantic"
     prompt_key: str = ""
+    layer: int = 1

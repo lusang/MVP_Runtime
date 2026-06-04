@@ -49,9 +49,9 @@ def _make_param(
 # ── Fixture template: full plan structure ───────────────────────────────
 
 
-def test_fixture_template_8_steps():
-    """Fixture template should produce 8 steps: scene_neg, detect, nms, verify,
-    quality, semantic, negative, merge."""
+def test_fixture_template_10_steps():
+    """Fixture template should produce 10 steps: scene_neg, detect, nms, verify,
+    quality, semantic, negative, quality_fallback, negative_fallback, merge."""
     parsed = _make_parsed(
         object_name="objects",
         quality_attrs=[_make_attr("background_clutter", scope="quality")],
@@ -77,13 +77,15 @@ def test_fixture_template_8_steps():
 
     step_names = [s.step for s in sorted(plan.steps, key=lambda s: s.order)]
     assert step_names == [
-        "negative",   # scene-level pure_negative
+        "negative",           # scene-level pure_negative
         "detect",
         "nms",
         "verify",
-        "quality",    # background_clutter
-        "attribute",  # object_type + is_package (merged)
-        "negative",   # ambiguous + open_set_negative (merged)
+        "quality",            # background_clutter (per-candidate)
+        "attribute",          # object_type + is_package (merged)
+        "negative",           # ambiguous + open_set_negative (merged)
+        "quality_fallback",   # scene-level, 0-detection safety
+        "negative_fallback",  # scene-level, 0-detection safety
         "merge",
     ], f"Got steps: {step_names}"
 

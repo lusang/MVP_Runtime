@@ -8,6 +8,8 @@
     "quality:gemini-2.0-flash",
     "attribute:gemini-2.5-pro",
     "negative:gemini-2.0-flash",
+    "quality_fallback:gemini-2.0-flash",
+    "negative_fallback:gemini-2.0-flash",
     "merge:gemini-2.0-flash"
   ],
   "candidates": [
@@ -17,7 +19,7 @@
       "verify_score": 0.88,
       "confidence": 0.895,
       "quality": {
-        "background_clutter": "none"
+        "background_clutter": false
       },
       "attributes": {
         "object_type": {
@@ -43,7 +45,7 @@
       "verify_score": 0.88,
       "confidence": 0.8,
       "quality": {
-        "background_clutter": "none"
+        "background_clutter": false
       },
       "attributes": {
         "object_type": {

@@ -93,6 +93,7 @@ class ObjectStateBuilder:
         object_name: str,
         merge_panel: dict[str, Any] | None = None,
         scene_pure_negative: bool = False,
+        metadata: dict[str, Any] | None = None,
     ) -> AnnotationObject:
         """Build clean AnnotationObject for annotation platform consumption.
 
@@ -145,6 +146,7 @@ class ObjectStateBuilder:
             bbox=[candidate.bbox.x1, candidate.bbox.y1, candidate.bbox.x2, candidate.bbox.y2],
             category=object_name,
             attributes=clean_attrs,
+            metadata=metadata or {},
             confidence=round(confidence, 4),
             status=status,
         )

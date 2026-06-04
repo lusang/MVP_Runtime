@@ -1,0 +1,343 @@
+{
+  "run_id": "5ea64a61-8968-4ff0-bfe7-cc2b3ad73ee0",
+  "task_id": "feaf60af-6608-46ea-8cd1-f91dc50be782",
+  "status": "completed",
+  "frames": [
+    {
+      "frame_id": "feaf60af-6608-46ea-8cd1-f91dc50be782",
+      "status": "completed",
+      "annotation_result": {
+        "image": "C:/Users/Administrator/Documents/01_SECURITY_ASSETS/_imported/45e46d57f1a7407591a57214ed47ead0/pos/4618f5949ec27d152eb795b23e2d64d3.jpeg",
+        "objects": [
+          {
+            "bbox": [
+              194.0938262939453,
+              395.2034912109375,
+              319.9076232910156,
+              535.5592651367188
+            ],
+            "category": "objects",
+            "attributes": {},
+            "confidence": 0.791,
+            "status": "rejected"
+          }
+        ]
+      },
+      "runtime_trace": {
+        "steps": [
+          {
+            "step_id": "negative:gemini-2.0-flash"
+          },
+          {
+            "step_id": "detect:yolo-world-v2-x"
+          },
+          {
+            "step_id": "nms:rule-engine"
+          },
+          {
+            "step_id": "verify:gemini-2.0-flash"
+          },
+          {
+            "step_id": "quality:gemini-2.0-flash"
+          },
+          {
+            "step_id": "attribute:gemini-2.5-pro"
+          },
+          {
+            "step_id": "negative:gemini-2.0-flash"
+          },
+          {
+            "step_id": "merge:gemini-2.0-flash"
+          }
+        ],
+        "candidate_history": [
+          {
+            "object_id": "obj_0",
+            "state": "rejected",
+            "detector_score": 0.32748302817344666,
+            "bbox": {
+              "x1": 194.0938262939453,
+              "y1": 395.2034912109375,
+              "x2": 319.9076232910156,
+              "y2": 535.5592651367188
+            },
+            "crop_path": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\987b33ac-3fb3-4eab-91c5-c71795e0949a\\candidate_0.jpg",
+            "exists": true,
+            "verify_score": 0.99,
+            "confidence": 0.6587415140867233,
+            "detection_confidence": 0.32748302817344666,
+            "verification_confidence": 0.99,
+            "merge_confidence": null,
+            "visibility": {},
+            "metrics": {},
+            "attribute_feasibility": {},
+            "missing_attributes": [],
+            "verification": {
+              "adapter": "GeminiClient",
+              "ok": false,
+              "score": 0.99,
+              "rationale": "The object appears to be a soft bag, which is excluded from the package definition.",
+              "object_name": "objects",
+              "image_path": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\987b33ac-3fb3-4eab-91c5-c71795e0949a\\candidate_0.jpg",
+              "object_id": "obj_0",
+              "description": "门口场景中出现在地面/台阶/人手中，且形态上可能被模型误认为快递纸箱的物体。\n\n当前业务定义：package = 快递纸箱 (cardboard_box)。外卖袋、软袋、信封、水等均不属于包裹检测范畴。\n\n标注规则：\"如果你觉得模型可能把这个东西误认成快递纸箱，就标它。\"\n\n后处理说明（代码执行，标注者不关心）：\n- is_package=true → 正样本，参与 mAP 计算\n- is_package=false → Hard Negative（带 bbox + 类型），参与 FP 分析\n- 场景中没有任何 object → Pure Negative",
+              "bbox": {
+                "x1": 0.0,
+                "y1": 0.0,
+                "x2": 133.0,
+                "y2": 152.0
+              },
+              "gemini_env": {
+                "api_key_configured": true,
+                "model": "gemini-2.0-flash",
+                "api_base_set": false,
+                "force_mock": false
+              }
+            },
+            "attributes": {},
+            "quality": {},
+            "negative_flags": {},
+            "history": [
+              {
+                "step": "verify",
+                "from": "detected",
+                "to": "rejected",
+                "reason": "verification rejected the candidate",
+                "timestamp": 1779777334.5054975
+              },
+              {
+                "step": "verify",
+                "decision": "rejected — routing to negative only",
+                "timestamp": 1779777334.5054975
+              },
+              {
+                "step": "quality",
+                "decision": "skipped — object does not exist",
+                "timestamp": 1779777334.5286477
+              },
+              {
+                "step": "semantic",
+                "decision": "skipped — object does not exist",
+                "timestamp": 1779777334.5517795
+              },
+              {
+                "step": "negative",
+                "decision": "skipped — NMS suppressed",
+                "timestamp": 1779777334.5732691
+              }
+            ]
+          }
+        ],
+        "planner_decisions": {
+          "plan_id": "f8c906d9-72ee-41a1-a0c5-b503484ef66d",
+          "planner_model": "StepGraphBuilder",
+          "planner_version": "2.0",
+          "steps": [
+            {
+              "step": "negative",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "full_image",
+              "order": 0,
+              "per_candidate": false,
+              "scope": "negative",
+              "params": {
+                "scene_check": true,
+                "attribute_key": "Pure Negative"
+              }
+            },
+            {
+              "step": "detect",
+              "model_id": "yolo-world-v2-x",
+              "data_flow": "full_image",
+              "order": 1,
+              "per_candidate": false,
+              "scope": null,
+              "params": {}
+            },
+            {
+              "step": "nms",
+              "model_id": "rule-engine",
+              "data_flow": "full_image",
+              "order": 2,
+              "per_candidate": false,
+              "scope": null,
+              "params": {
+                "iou_threshold": 0.5
+              }
+            },
+            {
+              "step": "verify",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "crop",
+              "order": 3,
+              "per_candidate": true,
+              "scope": null,
+              "params": {}
+            },
+            {
+              "step": "quality",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "full_image",
+              "order": 4,
+              "per_candidate": false,
+              "scope": "quality",
+              "params": {
+                "attribute_keys": [
+                  "background_clutter"
+                ]
+              }
+            },
+            {
+              "step": "attribute",
+              "model_id": "gemini-2.5-pro",
+              "data_flow": "crop",
+              "order": 5,
+              "per_candidate": true,
+              "scope": "semantic",
+              "params": {
+                "attribute_keys": [
+                  "object_type",
+                  "is_package"
+                ]
+              }
+            },
+            {
+              "step": "negative",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "crop",
+              "order": 6,
+              "per_candidate": true,
+              "scope": "negative",
+              "params": {
+                "attribute_keys": [
+                  "ambiguous",
+                  "open_set_negative"
+                ]
+              }
+            },
+            {
+              "step": "merge",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "full_image",
+              "order": 7,
+              "per_candidate": false,
+              "scope": null,
+              "params": {}
+            }
+          ],
+          "early_exit_rules": [
+            {
+              "condition": "scene_pure_negative",
+              "reason": "scene confirmed pure negative — no target object present"
+            }
+          ],
+          "skip_conditions": [
+            {
+              "step": "negative",
+              "condition": "scene_pure_negative",
+              "reason": "Pure Negative already confirmed at scene level"
+            },
+            {
+              "step": "attribute",
+              "condition": "all(not c.exists for c in candidates)",
+              "reason": "all candidates rejected by verification — no targets to assess"
+            }
+          ]
+        },
+        "quality_scores": [
+          {
+            "object_id": "obj_0",
+            "visibility": {},
+            "metrics": {},
+            "attribute_feasibility": {},
+            "missing_attributes": []
+          }
+        ],
+        "merge_reasoning": [
+          {
+            "step": "yolo_detection",
+            "input": "Full image: C:/Users/Administrator/Documents/01_SECURITY_ASSETS/_imported/45e46d57f1a7407591a57214ed47ead0/pos/4618f5949ec27d152eb795b23e2d64d3.jpeg",
+            "output": "1 candidate(s) detected",
+            "reasoning": "YOLO-World v2 open-vocabulary detection for 'objects'."
+          },
+          {
+            "step": "gemini_verification",
+            "input": "Crop image for obj_0",
+            "output": "ok=False score=0.99",
+            "reasoning": "The object appears to be a soft bag, which is excluded from the package definition."
+          },
+          {
+            "step": "gemini_semantic",
+            "input": "Crop image for obj_0",
+            "output": "{}",
+            "reasoning": "Semantic attributes extracted from crop."
+          },
+          {
+            "step": "opencv_quality",
+            "input": "Crop image for obj_0",
+            "output": "{}",
+            "reasoning": "Quality metrics computed via OpenCV heuristics."
+          },
+          {
+            "step": "gemini_negative",
+            "input": "Full scene + bbox for obj_0",
+            "output": "{}",
+            "reasoning": "Negative-sample attributes checked on full scene."
+          },
+          {
+            "step": "merge",
+            "input": "1 candidate(s) with all intermediate results",
+            "output": "0 positive, 1 negative",
+            "reasoning": "Weighted voting (detector=0.3, verifier=0.7) with agreement/conflict signals. Attribute conflicts resolved across 0 attribute(s)."
+          }
+        ],
+        "resolved_attributes": {},
+        "annotation_panel": {
+          "obj_0": {
+            "object_id": "obj_0",
+            "is_positive": false,
+            "negative_category": null,
+            "confidence": 0.791,
+            "detection_confidence": 0.327,
+            "verification_confidence": 0.99,
+            "merge_confidence": 0.791,
+            "attributes": {},
+            "quality": {},
+            "negative_flags": {}
+          }
+        },
+        "meta": {
+          "run_id": "987b33ac-3fb3-4eab-91c5-c71795e0949a",
+          "engine": "RuntimeEngine",
+          "version": "mvp-2.0",
+          "elapsed_ms": 2516.452,
+          "plan_id": "f8c906d9-72ee-41a1-a0c5-b503484ef66d",
+          "planner_model": "StepGraphBuilder",
+          "object_name": "objects",
+          "template_path": "C:/Users/Administrator/Documents/01_SECURITY_ASSETS/_imported/45e46d57f1a7407591a57214ed47ead0/pos/4618f5949ec27d152eb795b23e2d64d3.jpeg",
+          "scene_pure_negative": false,
+          "executed_steps": [
+            "negative:gemini-2.0-flash",
+            "detect:yolo-world-v2-x",
+            "nms:rule-engine",
+            "verify:gemini-2.0-flash",
+            "quality:gemini-2.0-flash",
+            "attribute:gemini-2.5-pro",
+            "negative:gemini-2.0-flash",
+            "merge:gemini-2.0-flash"
+          ],
+          "merge_adapter": "MergeEngine",
+          "merge_rules": {
+            "weights": {
+              "detector": 0.3,
+              "verifier": 0.7
+            },
+            "attribute_confidence_threshold": 0.3,
+            "nms_iou_threshold": 0.5
+          },
+          "preselection_dir": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\987b33ac-3fb3-4eab-91c5-c71795e0949a"
+        }
+      }
+    }
+  ]
+}

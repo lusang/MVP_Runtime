@@ -182,7 +182,7 @@ def compile_plan(parsed: ParsedTaskSpec) -> PipelinePlan:
         features = classify_by_keywords(attr)
 
         # Stage 2a: Capability Mapping
-        caps = map_features(features, attribute_key=attr.key, scope=scope)
+        caps = map_features(features, attribute_key=attr.key, scope=scope, layer=attr.layer)
 
         # Stage 2b: Resolver
         params = resolve(caps, scope=scope, attribute_name=attr.name)

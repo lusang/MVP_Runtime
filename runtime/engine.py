@@ -173,6 +173,7 @@ class RuntimeEngine:
                     object_name=parsed.object_name,
                     merge_panel=panel,
                     scene_pure_negative=result.scene_pure_negative,
+                    metadata=result.merge_result.get("metadata", {}),
                 )
                 annotation_objects.append(anno_obj)
         elif merge_objects:
@@ -203,6 +204,7 @@ class RuntimeEngine:
                     bbox=[0.0, 0.0, 0.0, 0.0],
                     category=parsed.object_name,
                     attributes=attrs,
+                    metadata=result.merge_result.get("metadata", {}),
                     confidence=round(float(confidence), 4),
                     status=status,
                 )

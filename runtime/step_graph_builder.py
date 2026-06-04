@@ -115,8 +115,9 @@ class StepGraphBuilder:
             if not (p.scope == "negative"
                     and p.attribute_key.lower().replace(" ", "_") == "pure_negative")
         ]
-        handler_map, model_map = self._build_handler_maps(filtered_params)
-        grouped = self._group_attributes(filtered_params)
+        main_params = [p for p in filtered_params if p.layer < 4]
+        handler_map, model_map = self._build_handler_maps(main_params)
+        grouped = self._group_attributes(main_params)
 
         for scope in ("quality", "semantic", "negative"):
             if scope not in grouped:
@@ -140,7 +141,16 @@ class StepGraphBuilder:
                 ))
                 order += 1
 
-        # 8. Scene-level fallback (0-detection safety net)
+        # 8. Candidate guard (reject candidates whose Layer 3 confusion flags fired)
+        has_guard = any(p.layer == 3 for p in filtered_params)
+        if has_guard:
+            steps.append(self._make_step(
+                step="candidate_guard", model_id="rule-engine",
+                data_flow=DataFlow.CROP, order=order, per_candidate=True,
+            ))
+            order += 1
+
+        # 9. Scene-level fallback (0-detection safety net)
         self._add_fallback_steps(attribute_params, steps, order)
 
     # ── Topology: full-image analysis (no detector) ─────────────────
@@ -159,12 +169,17 @@ class StepGraphBuilder:
             if not (p.scope == "negative"
                     and p.attribute_key.lower().replace(" ", "_") == "pure_negative")
         ]
-        handler_map, model_map = self._build_handler_maps(filtered_params)
 
-        # Collect attributes by scope — force data_flow=full_image for all
-        quality_keys = sorted({p.attribute_key for p in filtered_params if p.scope == "quality"})
-        semantic_keys = sorted({p.attribute_key for p in filtered_params if p.scope == "semantic"})
-        negative_keys = sorted({p.attribute_key for p in filtered_params if p.scope == "negative"})
+        # Separate Layer 4 (metadata/analytics) from main attributes (Layers 1-3)
+        main_params = [p for p in filtered_params if p.layer < 4]
+        meta_params = [p for p in filtered_params if p.layer == 4]
+
+        handler_map, model_map = self._build_handler_maps(main_params)
+
+        # Collect main attributes by scope — force data_flow=full_image for all
+        quality_keys = sorted({p.attribute_key for p in main_params if p.scope == "quality"})
+        semantic_keys = sorted({p.attribute_key for p in main_params if p.scope == "semantic"})
+        negative_keys = sorted({p.attribute_key for p in main_params if p.scope == "negative"})
 
         if quality_keys:
             steps.append(self._make_step(
@@ -210,6 +225,35 @@ class StepGraphBuilder:
                     "attribute_keys": negative_keys,
                     "handler_map": {k: handler_map[k] for k in negative_keys},
                     "model_map": {k: model_map[k] for k in negative_keys},
+                },
+            ))
+            order += 1
+
+        # Candidate guard (reject candidates whose Layer 3 confusion flags fired)
+        has_guard = any(p.layer == 3 for p in filtered_params)
+        if has_guard:
+            steps.append(self._make_step(
+                step="candidate_guard", model_id="rule-engine",
+                data_flow=DataFlow.CROP, order=order, per_candidate=True,
+            ))
+            order += 1
+
+        # Metadata step (Layer 4 — scene semantics, optional)
+        if meta_params:
+            meta_keys = sorted({p.attribute_key for p in meta_params})
+            meta_handler_map = {p.attribute_key: p.handler for p in meta_params}
+            meta_model_map = {p.attribute_key: p.model_id for p in meta_params}
+            steps.append(self._make_step(
+                step="metadata",
+                model_id="gemini-2.0-flash",
+                data_flow=DataFlow.FULL,
+                order=order,
+                per_candidate=False,
+                scope="semantic",
+                params={
+                    "attribute_keys": meta_keys,
+                    "handler_map": meta_handler_map,
+                    "model_map": meta_model_map,
                 },
             ))
             order += 1

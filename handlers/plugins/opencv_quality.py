@@ -29,6 +29,18 @@ class OpenCVQualityPlugin:
     ) -> dict[str, Any]:
         if spec.scope != "quality":
             raise ValueError(f"OpenCVQualityPlugin expected quality scope, got {spec.scope!r}")
+
+        # Numeric type → continuous score (Layer 2 Visibility)
+        if spec.type == "numeric":
+            return await self._analyzer.analyze_numeric(
+                image_path=image_path,
+                bbox=bbox,
+                parsed=parsed_template,
+                object_id=object_id,
+                attribute_name=spec.name,
+                description=spec.description,
+            )
+
         return await self._analyzer.analyze_quality(
             image_path=image_path,
             bbox=bbox,

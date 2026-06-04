@@ -40,7 +40,7 @@ def _read_gray_region(image_path: str, bbox: BBox) -> np.ndarray | None:
     return img[y1:y2, x1:x2]
 
 
-# --------------- blur ---------------
+# --------------- blur (discrete) ---------------
 
 def _analyze_blur(gray: np.ndarray, options: list[str]) -> dict[str, Any]:
     var = cv2.Laplacian(gray, cv2.CV_64F).var()
@@ -97,6 +97,61 @@ _ANALYZERS = {
     "lighting": _analyze_lighting,
     "occlusion": _analyze_occlusion,
 }
+
+
+# ── Numeric (continuous score) analyzers ─────────────────────────────
+
+_NUMERIC_ANALYZERS: dict[str, Any] = {}
+
+
+def _analyze_blur_numeric(gray: np.ndarray) -> dict[str, Any]:
+    """Return blur as continuous score 0.0 (heavily blurred) → 1.0 (sharp).
+
+    Based on normalized Laplacian variance. Typical ranges:
+      < 0.15:  heavy blur
+      0.15-0.40: slight blur
+      > 0.40:   sharp/clear
+    """
+    var = cv2.Laplacian(gray, cv2.CV_64F).var()
+    score = min(1.0, var / 500.0)
+    return {"value": round(score, 3), "confidence": 1.0, "laplacian_var": round(var, 1), "score": round(score, 3)}
+
+
+def _analyze_lighting_numeric(gray: np.ndarray) -> dict[str, Any]:
+    """Return exposure as continuous score 0.0 (dark) → 1.0 (bright).
+
+    Based on normalized histogram mean. Typical ranges:
+      < 0.25:  dim/underexposed
+      0.25-0.75: normal
+      > 0.75:  bright/overexposed
+    """
+    mean = float(np.mean(gray))
+    score = mean / 255.0
+    return {"value": round(score, 3), "confidence": 1.0, "histogram_mean": round(mean, 1), "score": round(score, 3)}
+
+
+def _analyze_occlusion_numeric(gray: np.ndarray) -> dict[str, Any]:
+    """Return occlusion as continuous score 0.0 (heavily occluded) → 1.0 (none).
+
+    Based on edge density. Low edge density → likely occluded.
+    Typical ranges:
+      < 0.03: heavy occlusion
+      0.03-0.08: partial occlusion
+      > 0.08: no occlusion
+    """
+    edges = cv2.Canny(gray, 50, 150)
+    density = float(np.sum(edges > 0)) / max(1, edges.size)
+    # Invert: high edge density → low occlusion (high score)
+    score = min(1.0, density / 0.15)
+    return {"value": round(score, 3), "confidence": 1.0, "edge_density": round(density, 4), "score": round(score, 3)}
+
+
+for _name, _func in [
+    ("blur", _analyze_blur_numeric),
+    ("lighting", _analyze_lighting_numeric),
+    ("occlusion", _analyze_occlusion_numeric),
+]:
+    _NUMERIC_ANALYZERS[_name] = _func
 
 
 def _mock_result(
@@ -172,4 +227,54 @@ class OpenCVAnalyzer:
             "image_path": image_path,
             "description": description,
             "metrics": {k: v for k, v in analysis.items() if k not in ("value", "confidence")},
+        }
+
+    async def analyze_numeric(
+        self,
+        *,
+        image_path: str,
+        bbox: BBox,
+        parsed: ParsedTaskSpec,
+        object_id: str,
+        attribute_name: str,
+        description: str,
+    ) -> dict[str, Any]:
+        """Analyze a numeric attribute — returns continuous score 0.0-1.0.
+
+        Unlike analyze_quality(), this does NOT discretize into options.
+        Returns raw normalized measurement for business-defined thresholds.
+        """
+        analyzer = _NUMERIC_ANALYZERS.get(attribute_name)
+        if analyzer is None or not _HAS_CV2:
+            return _mock_result(
+                attribute_name, "numeric", [], object_id, image_path, parsed, description, bbox
+            )
+
+        gray = _read_gray_region(image_path, bbox)
+        if gray is None or gray.size == 0:
+            return _mock_result(
+                attribute_name, "numeric", [], object_id, image_path, parsed, description, bbox
+            )
+
+        try:
+            analysis = analyzer(gray)
+        except Exception:
+            return _mock_result(
+                attribute_name, "numeric", [], object_id, image_path, parsed, description, bbox
+            )
+
+        return {
+            "adapter": "OpenCVAnalyzer",
+            "channel": "numeric_quality",
+            "attribute_name": attribute_name,
+            "attribute_type": "numeric",
+            "value": analysis["value"],
+            "confidence": analysis["confidence"],
+            "score": analysis["score"],
+            "object_id": object_id,
+            "object_name": parsed.object_name,
+            "bbox_area": max(0.0, (bbox.x2 - bbox.x1) * (bbox.y2 - bbox.y1)),
+            "image_path": image_path,
+            "description": description,
+            "metrics": {k: v for k, v in analysis.items() if k not in ("value", "confidence", "score")},
         }

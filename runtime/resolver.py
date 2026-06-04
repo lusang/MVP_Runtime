@@ -57,6 +57,7 @@ def resolve(
         required_capabilities=caps.required_capabilities,
         scope=scope,
         prompt_key=prompt_key,
+        layer=caps.layer,
     )
 
 

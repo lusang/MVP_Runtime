@@ -1,0 +1,208 @@
+{
+  "run_id": "5ea64a61-8968-4ff0-bfe7-cc2b3ad73ee0",
+  "task_id": "f9edd2de-f932-4836-8a1d-5b93273ae824",
+  "status": "completed",
+  "frames": [
+    {
+      "frame_id": "f9edd2de-f932-4836-8a1d-5b93273ae824",
+      "status": "completed",
+      "annotation_result": {
+        "image": "C:/Users/Administrator/Documents/01_SECURITY_ASSETS/lable/images/delivery/neg/neg_2024120511521469_0013.jpg",
+        "objects": []
+      },
+      "runtime_trace": {
+        "steps": [
+          {
+            "step_id": "negative:gemini-2.0-flash"
+          },
+          {
+            "step_id": "detect:yolo-world-v2-x"
+          },
+          {
+            "step_id": "nms:rule-engine"
+          },
+          {
+            "step_id": "verify:gemini-2.0-flash"
+          },
+          {
+            "step_id": "quality:gemini-2.0-flash"
+          },
+          {
+            "step_id": "attribute:gemini-2.5-pro"
+          },
+          {
+            "step_id": "negative:gemini-2.0-flash"
+          },
+          {
+            "step_id": "merge:gemini-2.0-flash"
+          }
+        ],
+        "candidate_history": [],
+        "planner_decisions": {
+          "plan_id": "f8c906d9-72ee-41a1-a0c5-b503484ef66d",
+          "planner_model": "StepGraphBuilder",
+          "planner_version": "2.0",
+          "steps": [
+            {
+              "step": "negative",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "full_image",
+              "order": 0,
+              "per_candidate": false,
+              "scope": "negative",
+              "params": {
+                "scene_check": true,
+                "attribute_key": "Pure Negative"
+              }
+            },
+            {
+              "step": "detect",
+              "model_id": "yolo-world-v2-x",
+              "data_flow": "full_image",
+              "order": 1,
+              "per_candidate": false,
+              "scope": null,
+              "params": {}
+            },
+            {
+              "step": "nms",
+              "model_id": "rule-engine",
+              "data_flow": "full_image",
+              "order": 2,
+              "per_candidate": false,
+              "scope": null,
+              "params": {
+                "iou_threshold": 0.5
+              }
+            },
+            {
+              "step": "verify",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "crop",
+              "order": 3,
+              "per_candidate": true,
+              "scope": null,
+              "params": {}
+            },
+            {
+              "step": "quality",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "full_image",
+              "order": 4,
+              "per_candidate": false,
+              "scope": "quality",
+              "params": {
+                "attribute_keys": [
+                  "background_clutter"
+                ]
+              }
+            },
+            {
+              "step": "attribute",
+              "model_id": "gemini-2.5-pro",
+              "data_flow": "crop",
+              "order": 5,
+              "per_candidate": true,
+              "scope": "semantic",
+              "params": {
+                "attribute_keys": [
+                  "object_type",
+                  "is_package"
+                ]
+              }
+            },
+            {
+              "step": "negative",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "crop",
+              "order": 6,
+              "per_candidate": true,
+              "scope": "negative",
+              "params": {
+                "attribute_keys": [
+                  "ambiguous",
+                  "open_set_negative"
+                ]
+              }
+            },
+            {
+              "step": "merge",
+              "model_id": "gemini-2.0-flash",
+              "data_flow": "full_image",
+              "order": 7,
+              "per_candidate": false,
+              "scope": null,
+              "params": {}
+            }
+          ],
+          "early_exit_rules": [
+            {
+              "condition": "scene_pure_negative",
+              "reason": "scene confirmed pure negative — no target object present"
+            }
+          ],
+          "skip_conditions": [
+            {
+              "step": "negative",
+              "condition": "scene_pure_negative",
+              "reason": "Pure Negative already confirmed at scene level"
+            },
+            {
+              "step": "attribute",
+              "condition": "all(not c.exists for c in candidates)",
+              "reason": "all candidates rejected by verification — no targets to assess"
+            }
+          ]
+        },
+        "quality_scores": [],
+        "merge_reasoning": [
+          {
+            "step": "yolo_detection",
+            "input": "Full image: C:/Users/Administrator/Documents/01_SECURITY_ASSETS/lable/images/delivery/neg/neg_2024120511521469_0013.jpg",
+            "output": "0 candidate(s) detected",
+            "reasoning": "YOLO-World v2 open-vocabulary detection for 'objects'."
+          },
+          {
+            "step": "merge",
+            "input": "0 candidate(s) with all intermediate results",
+            "output": "0 positive, 0 negative",
+            "reasoning": "Weighted voting (detector=0.3, verifier=0.7) with agreement/conflict signals. Attribute conflicts resolved across 0 attribute(s)."
+          }
+        ],
+        "resolved_attributes": {},
+        "annotation_panel": null,
+        "meta": {
+          "run_id": "5ccd161a-70bf-4a04-b750-036b60f01240",
+          "engine": "RuntimeEngine",
+          "version": "mvp-2.0",
+          "elapsed_ms": 4308.569,
+          "plan_id": "f8c906d9-72ee-41a1-a0c5-b503484ef66d",
+          "planner_model": "StepGraphBuilder",
+          "object_name": "objects",
+          "template_path": "C:/Users/Administrator/Documents/01_SECURITY_ASSETS/lable/images/delivery/neg/neg_2024120511521469_0013.jpg",
+          "scene_pure_negative": false,
+          "executed_steps": [
+            "negative:gemini-2.0-flash",
+            "detect:yolo-world-v2-x",
+            "nms:rule-engine",
+            "verify:gemini-2.0-flash",
+            "quality:gemini-2.0-flash",
+            "attribute:gemini-2.5-pro",
+            "negative:gemini-2.0-flash",
+            "merge:gemini-2.0-flash"
+          ],
+          "merge_adapter": "MergeEngine",
+          "merge_rules": {
+            "weights": {
+              "detector": 0.3,
+              "verifier": 0.7
+            },
+            "attribute_confidence_threshold": 0.3,
+            "nms_iou_threshold": 0.5
+          },
+          "preselection_dir": "C:\\Users\\Administrator\\Documents\\tools\\MVP_Runtime-main\\MVP_Runtime-main\\storage\\preselection\\5ccd161a-70bf-4a04-b750-036b60f01240"
+        }
+      }
+    }
+  ]
+}

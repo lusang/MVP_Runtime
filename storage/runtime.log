@@ -1,0 +1,32 @@
+17:02:50 | INFO  | mvp.batch_registry | Batch 6131d331-c167-410e-b4b4-0b66c6b49b72: registered (1 tasks)
+17:02:50 | INFO  | mvp.async_worker | Batch 6131d331-c167-410e-b4b4-0b66c6b49b72: starting with 1 task(s)
+17:02:50 | INFO  | mvp.async_worker | Batch 6131d331-c167-410e-b4b4-0b66c6b49b72: processing task 1/1 task_id=ffea0498-4514-4879-bdaf-31d29bcecd30 frames=1
+17:02:50 | INFO  | mvp.async_worker | Batch 6131d331-c167-410e-b4b4-0b66c6b49b72 task=ffea0498-4514-4879-bdaf-31d29bcecd30 frame 1/1 frame_id=ffea0498-4514-4879-bdaf-31d29bcecd30 url=file:///C:/Users/Administrator/Documents/01_SECURITY_ASSETS/_imported/45e46d57f1a7407591a57214ed47ead0/neg/54c15091aa3cbe5d3835690b08e8a754.jpeg
+17:02:50 | INFO  | google_genai.models | AFC is enabled with max remote calls: 10.
+17:02:52 | INFO  | google_genai.models | AFC is enabled with max remote calls: 10.
+17:02:54 | INFO  | google_genai.models | AFC is enabled with max remote calls: 10.
+17:02:56 | INFO  | google_genai.models | AFC is enabled with max remote calls: 10.
+17:03:04 | INFO  | google_genai.models | AFC is enabled with max remote calls: 10.
+17:03:06 | INFO  | google_genai.models | AFC is enabled with max remote calls: 10.
+17:03:08 | INFO  | google_genai.models | AFC is enabled with max remote calls: 10.
+17:03:11 | INFO  | google_genai.models | AFC is enabled with max remote calls: 10.
+17:03:16 | INFO  | google_genai.models | AFC is enabled with max remote calls: 10.
+17:03:19 | INFO  | google_genai.models | AFC is enabled with max remote calls: 10.
+17:03:28 | INFO  | backoff | Backing off _gemini_generate(...) for 0.9s (google.genai.errors.ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.', 'status': 'RESOURCE_EXHAUSTED'}})
+17:03:29 | INFO  | google_genai.models | AFC is enabled with max remote calls: 10.
+17:03:32 | INFO  | google_genai.models | AFC is enabled with max remote calls: 10.
+17:03:35 | INFO  | google_genai.models | AFC is enabled with max remote calls: 10.
+17:03:38 | INFO  | mvp.async_worker | Batch 6131d331-c167-410e-b4b4-0b66c6b49b72 task=ffea0498-4514-4879-bdaf-31d29bcecd30 frame=ffea0498-4514-4879-bdaf-31d29bcecd30: completed objects=2 elapsed=48832ms
+17:03:38 | INFO  | mvp.batch_registry | Batch 6131d331-c167-410e-b4b4-0b66c6b49b72: unregistered
+17:03:38 | ERROR | asyncio | Task exception was never retrieved
+future: <Task finished name='Task-1727' coro=<process_batch() done, defined at C:\Users\Administrator\Documents\tools\MVP_Runtime-main\MVP_Runtime-main\runtime\async_worker.py:190> exception=TypeError("'<' not supported between instances of 'dict' and 'float'")>
+Traceback (most recent call last):
+  File "C:\Users\Administrator\Documents\tools\MVP_Runtime-main\MVP_Runtime-main\runtime\async_worker.py", line 245, in process_batch
+    await _process_task(
+  File "C:\Users\Administrator\Documents\tools\MVP_Runtime-main\MVP_Runtime-main\runtime\async_worker.py", line 365, in _process_task
+    "operator_summary": build_operator_summary(trace, ann),
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\Documents\tools\MVP_Runtime-main\MVP_Runtime-main\runtime\async_worker.py", line 154, in build_operator_summary
+    if isinstance(qs, dict) and qs.get("visibility", 1) < 0.5:
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: '<' not supported between instances of 'dict' and 'float'

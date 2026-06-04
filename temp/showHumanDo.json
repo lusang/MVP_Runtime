@@ -1,0 +1,21 @@
+{
+  "objects": [
+    {
+      "name": "objects",
+      "quality": {
+        "blur": "slight",
+        "lighting": "dim",
+        "occlusion": "partial"
+      },
+      "negative": {},
+      "attributes": {
+        "scenario": "resident_carry",
+        "object_type": [
+          "cardboard_box"
+        ],
+        "person_action": "manipulating",
+        "size_category": "medium"
+      }
+    }
+  ]
+}

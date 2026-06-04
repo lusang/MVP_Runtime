@@ -28,6 +28,10 @@ class AnnotationObject(BaseModel):
         default_factory=dict,
         description="Semantic attributes with non-null values (excludes quality, negative, infeasible).",
     )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Layer 4 analytics attributes (scene semantics, not for training).",
+    )
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     status: Literal["accepted", "rejected", "pending"] = Field(
         default="pending",

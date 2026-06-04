@@ -39,6 +39,8 @@ _HANDLER_FOR_STEP: dict[str, str] = {
     "full_quality": "GeminiAttributePlugin",
     "full_attribute": "GeminiAttributePlugin",
     "full_negative": "GeminiNegativePlugin",
+    "candidate_guard": "RuleEngine",
+    "metadata": "GeminiAttributePlugin",
     "merge": "MergeEngine",
 }
 
@@ -300,6 +302,10 @@ class StepExecutor:
             await self._run_full_attribute(step, ctx, state, image_path, parsed, run_id)
         elif step.step == "full_negative":
             await self._run_full_negative(step, ctx, state, image_path, parsed, run_id)
+        elif step.step == "candidate_guard":
+            self._run_candidate_guard(step, state)
+        elif step.step == "metadata":
+            await self._run_metadata(step, ctx, state, image_path, parsed, run_id)
         elif step.step == "merge":
             await self._run_merge(step, ctx, state, image_path, parsed, run_id)
 
@@ -780,6 +786,78 @@ class StepExecutor:
             _log(state, None, f"    · {k} = {val}")
         _log(state, None, "")
 
+    # ── candidate_guard (Layer 3 — reject candidates with confusion flags) ──
+
+    def _run_candidate_guard(
+        self,
+        step: PlanStep,
+        state: RuntimeState,
+    ) -> None:
+        """Reject candidates whose Layer 3 confusion flags (e.g. hard_negative) are set.
+
+        Runs after negative analysis, before merge. Only affects per-candidate
+        confusion factors — does NOT modify scene-level flags.
+        """
+        label = f"{step.step}:{step.model_id}"
+        _log(state, label, "CANDIDATE GUARD")
+        rejected = 0
+        for c in state.active_candidates():
+            triggered = _negative_triggered(c.negative_flags)
+            if triggered:
+                c.transition_to(CandidateState.REJECTED, "candidate_guard",
+                                f"confusion flags: {', '.join(triggered)}")
+                c.record("candidate_guard", f"rejected — {', '.join(triggered)}")
+                _log(state, None, f"    · {c.object_id}  ✗ rejected ({', '.join(triggered)})")
+                rejected += 1
+            else:
+                c.record("candidate_guard", "passed")
+                _log(state, None, f"    · {c.object_id}  ✓ passed")
+        if rejected:
+            _log(state, None, f"  {rejected} candidate(s) rejected by guard")
+        else:
+            _log(state, None, "  all candidates passed guard")
+        _log(state, None, "")
+
+    # ── metadata (Layer 4 — scene semantics, optional) ─────────────────
+
+    async def _run_metadata(
+        self,
+        step: PlanStep,
+        ctx: _ExecutionContext,
+        state: RuntimeState,
+        image_path: str,
+        parsed: ParsedTaskSpec,
+        run_id: str,
+    ) -> None:
+        """Scene-level analysis of Layer 4 attributes (scene semantics / analytics).
+
+        Always scene-level (full_image), never per-candidate.
+        Results stored in state.scene_flags['metadata'] for downstream consumption.
+        """
+        if not self._attribute_handler:
+            state.scene_flags["metadata"] = {}
+            return
+        from storage.image_crop import bbox_for_full_crop
+
+        label = f"{step.step}:{step.model_id}"
+        full_bbox = bbox_for_full_crop(image_path)
+        result = await self._attribute_handler.analyze_by_scopes(
+            image_path=image_path,
+            bbox=full_bbox,
+            parsed=parsed,
+            object_id="scene",
+            scopes={"semantic"},
+            include_keys=frozenset(step.params.get("attribute_keys", [])),
+            handler_map=step.params.get("handler_map", {}),
+            model_map=step.params.get("model_map", {}),
+        )
+        state.scene_flags["metadata"] = result.attributes
+        _log(state, label, "METADATA (Layer 4)")
+        for k, v in result.attributes.items():
+            val = v.get("value", "?") if isinstance(v, dict) else "?"
+            _log(state, None, f"    · {k} = {val}")
+        _log(state, None, "")
+
     # ── merge ───────────────────────────────────────────────────────
 
     async def _run_merge(
@@ -820,6 +898,12 @@ class StepExecutor:
             run_id=run_id,
             execution_log_text="\n".join(ctx.execution_log_lines),
         )
+
+        # Attach metadata (Layer 4 scene semantics) to merge result
+        meta = state.scene_flags.get("metadata")
+        if meta:
+            merge_result["metadata"] = meta
+
         state._merge_result = merge_result
 
 

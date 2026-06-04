@@ -18,12 +18,20 @@ HANDLER_BY_SCOPE: dict[AttributeScope, str] = {
 
 
 class TemplateAttributeSpec(BaseModel):
-    """One executable attribute slot (handler assigned by parser from scope)."""
+    """One executable attribute slot (handler assigned by parser from scope).
+
+    ``layer`` controls pipeline routing:
+      1 = core features (Gemini per-candidate, training signal)
+      2 = visibility (OpenCV numeric, no LLM)
+      3 = confusion factors (Gemini scene-level, guard)
+      4 = scene semantics (metadata only, no training)
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(..., min_length=1)
     type: str = Field(default="unknown")
+    layer: int = Field(default=1, ge=1, le=4)
     options: list[Any] = Field(default_factory=list)
     description: str = Field(default="")
     handler: str = Field(..., min_length=1)

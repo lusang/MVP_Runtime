@@ -134,6 +134,7 @@ class TemplateParser:
                 spec = TemplateAttributeSpec(
                     name=name,
                     type=str(item.get("type", "unknown")),
+                    layer=int(item.get("layer", 1)),
                     options=options,
                     description=str(item.get("description", "")),
                     handler=handler,

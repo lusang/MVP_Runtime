@@ -18,6 +18,7 @@ def map_features(
     *,
     attribute_key: str,
     scope: str,
+    layer: int = 1,
 ) -> AttributeCapabilities:
     """Map semantic features to data_flow + required capabilities.
 
@@ -25,6 +26,7 @@ def map_features(
         features: Semantic feature vector from Stage 1.
         attribute_key: Attribute identifier for traceability.
         scope: "semantic", "quality", or "negative".
+        layer: Template layer (1-4). Layer 4 attributes are forced to full_image.
 
     Returns:
         AttributeCapabilities with data_flow, required_capabilities, per_candidate.
@@ -46,12 +48,15 @@ def map_features(
 
     # ── required_capabilities ───────────────────────────────────────
     # Describe what the attribute needs, not who provides it.
+    # Numeric-analyzeable attributes (e.g. blur/occlusion) get BOTH
+    # numeric_analysis AND vision_reasoning — the Resolver picks the
+    # appropriate handler by priority (numeric_analysis wins).
 
+    if features.supports_numeric_analysis:
+        caps.append("numeric_analysis")
     if features.requires_reasoning:
         caps.append("vision_reasoning")
-    elif features.supports_numeric_analysis:
-        caps.append("numeric_analysis")
-    else:
+    if not caps:
         caps.append("vision_reasoning")  # conservative default
 
     if scope == "negative":
@@ -65,4 +70,5 @@ def map_features(
         data_flow=data_flow,
         required_capabilities=caps,
         per_candidate=per_candidate,
+        layer=layer,
     )

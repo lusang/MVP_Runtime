@@ -20,6 +20,12 @@ _NUMERIC_ANALYSIS_NAMES = frozenset({
     "contrast", "sharpness", "noise", "exposure",
 })
 
+# ── Description keywords that signal pixel-level numeric analysis ──
+_NUMERIC_ANALYSIS_DESC_KEYWORDS = {
+    "模糊", "清晰", "边缘", "像素", "遮挡", "曝光",
+    "亮度", "对比度", "噪声", "锐度", "光照", "暗",
+}
+
 # ── Keywords that indicate full-scene context is needed ──
 _GLOBAL_CONTEXT_KEYWORDS = {
     "背景", "环境", "场景", "全局", "全景",
@@ -93,7 +99,13 @@ def classify_by_keywords(attr: TemplateAttributeSpec) -> SemanticFeatures:
         features.candidate_level = True
 
     # ── supports_numeric_analysis ──────────────────────────────────
-    if name in _NUMERIC_ANALYSIS_NAMES:
+    # Matches by name (hardcoded known set) OR by description keywords
+    # (template-agnostic: any quality attribute describing pixel-level
+    # properties like blur/occlusion/exposure will be correctly assigned).
+    if name in _NUMERIC_ANALYSIS_NAMES or (
+        scope == "quality"
+        and _has_any_keyword(desc, _NUMERIC_ANALYSIS_DESC_KEYWORDS)
+    ):
         features.supports_numeric_analysis = True
     else:
         features.supports_numeric_analysis = False

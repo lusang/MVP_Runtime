@@ -52,7 +52,13 @@
       "params": {
         "attribute_keys": [
           "background_clutter"
-        ]
+        ],
+        "handler_map": {
+          "background_clutter": "gemini"
+        },
+        "model_map": {
+          "background_clutter": "gemini-2.0-flash"
+        }
       }
     },
     {
@@ -66,7 +72,15 @@
         "attribute_keys": [
           "object_type",
           "is_package"
-        ]
+        ],
+        "handler_map": {
+          "object_type": "gemini",
+          "is_package": "gemini"
+        },
+        "model_map": {
+          "object_type": "gemini-2.0-flash",
+          "is_package": "gemini-2.5-pro"
+        }
       }
     },
     {
@@ -80,11 +94,60 @@
         "attribute_keys": [
           "ambiguous",
           "open_set_negative"
-        ]
+        ],
+        "handler_map": {
+          "ambiguous": "gemini_negative",
+          "open_set_negative": "gemini_negative"
+        },
+        "model_map": {
+          "ambiguous": "gemini-2.0-flash",
+          "open_set_negative": "gemini-2.0-flash"
+        }
       }
     },
     {
       "order": 7,
+      "step": "quality_fallback",
+      "model_id": "gemini-2.0-flash",
+      "data_flow": "full_image",
+      "per_candidate": false,
+      "scope": "quality",
+      "params": {
+        "attribute_keys": [
+          "background_clutter"
+        ],
+        "handler_map": {
+          "background_clutter": "gemini"
+        },
+        "model_map": {
+          "background_clutter": "gemini-2.0-flash"
+        }
+      }
+    },
+    {
+      "order": 8,
+      "step": "negative_fallback",
+      "model_id": "gemini-2.0-flash",
+      "data_flow": "full_image",
+      "per_candidate": false,
+      "scope": "negative",
+      "params": {
+        "attribute_keys": [
+          "ambiguous",
+          "open_set_negative"
+        ],
+        "handler_map": {
+          "ambiguous": "gemini_negative",
+          "open_set_negative": "gemini_negative"
+        },
+        "model_map": {
+          "ambiguous": "gemini-2.0-flash",
+          "open_set_negative": "gemini-2.0-flash"
+        }
+      }
+    },
+    {
+      "order": 9,
       "step": "merge",
       "model_id": "gemini-2.0-flash",
       "data_flow": "full_image",
@@ -107,6 +170,14 @@
     {
       "condition": "all(not c.exists for c in candidates)",
       "reason": "all candidates rejected by verification — no targets to assess"
+    },
+    {
+      "condition": "len(candidates) > 0",
+      "reason": "candidates exist — scene-level quality fallback not needed"
+    },
+    {
+      "condition": "len(candidates) > 0",
+      "reason": "candidates exist — scene-level negative fallback not needed"
     }
   ]
 }

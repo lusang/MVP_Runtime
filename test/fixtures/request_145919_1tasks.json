@@ -1,0 +1,84 @@
+{
+  "template": {
+    "objects": [
+      {
+        "name": "objects",
+        "description": "门口场景中出现在地面/台阶/人手中，且形态上可能被模型误认为快递纸箱的物体。\n\n当前业务定义：package = 快递纸箱 (cardboard_box)。外卖袋、软袋、信封、水等均不属于包裹检测范畴。\n\n标注规则：\"如果你觉得模型可能把这个东西误认成快递纸箱，就标它。\"\n\n后处理说明（代码执行，标注者不关心）：\n- is_package=true → 正样本，参与 mAP 计算\n- is_package=false → Hard Negative（带 bbox + 类型），参与 FP 分析\n- 场景中没有任何 object → Pure Negative",
+        "include": "- 正样本：快递纸箱 (cardboard_box) — 瓦楞纸箱，规则直角，硬质不变形\n- 负样本：所有可能被模型误认为快递纸箱的物体（外卖袋、快递软袋、编织袋、信封、背包、收纳箱、各类袋子、食品运输箱等）\n- 核心原则：如果你觉得模型可能把这个东西误认成快递纸箱，就标它",
+        "exclude": "- 业务定义非包裹：外卖餐盒/袋、水桶/水瓶、牛奶箱等\n- 明显不可能被误认为纸箱的小物件（钥匙、手机、水杯、雨伞等）\n- 建筑固定结构（门、墙、台阶、柱子）\n- 家具（固定长椅、桌子、花盆）\n- 未封装散落物品（一堆树叶、工具等）",
+        "attributes": [
+          {
+            "name": "object_type",
+            "type": "multi_select",
+            "options": [
+              "瓦楞纸箱",
+              "外卖",
+              "快递软包",
+              "编织袋",
+              "文件袋",
+              "背包",
+              "收纳箱",
+              "袋子",
+              "食品运输箱",
+              "不知道是什么"
+            ],
+            "description": "这个物体客观来说是什么？"
+          },
+          {
+            "name": "is_package",
+            "type": "boolean",
+            "options": [],
+            "description": "这是不是真正的包裹/快递纸箱？\n\n== 是（true）==\n需要模型检测出来的快递纸箱。\n- 门口/地面/台阶上的瓦楞纸箱 → true\n- 正在被快递员投递/放下的纸箱 → true\n- 居民收件后暂时放在门口的纸箱 → true\n\n== 否（false）==\n像纸箱但实际不是，或业务上不算包裹。\n- 外卖袋/外卖纸袋 → false（业务定义：不算包裹）\n- 快递塑料软袋 (poly_mailer) → false（非纸箱形态）\n- 编织袋 → false（非纸箱形态）\n- 信封 → false（非纸箱形态）\n- 各类袋子（购物袋/垃圾袋/洗衣袋）→ false\n- 食品运输箱 → false（非快递用途）\n- 背包 → false（个人物品）\n- 收纳箱 → false（非快递用途）\n\n== 标注判断技巧 ==\n1. 这客观上是不是纸箱？→ 不是纸箱直接 false\n2. 是纸箱，但用途是不是快递？→ 如果看起来是快递纸箱，标 true\n3. 不确定是不是纸箱，但模型可能把它当纸箱？→ 标 false（作为 Hard Negative）"
+          }
+        ],
+        "quality": {
+          "attributes": [
+            {
+              "name": "background_clutter",
+              "type": "boolean",
+              "options": [],
+              "description": "背景是否存在大量杂波干扰（如地面纹理复杂/多物体堆叠/光影斑驳/背景有类似纸箱形状的物体）\ntrue: 背景杂，模型可能分不清前景和背景\nfalse: 背景干净，目标突出"
+            }
+          ]
+        },
+        "negative": {
+          "attributes": [
+            {
+              "name": "pure_negative",
+              "type": "boolean",
+              "options": [],
+              "description": "定义：场景中根本不存在 package。例如：空走廊、只有人、只有车、家具、花园、草坪。"
+            },
+            {
+              "name": "ambiguous",
+              "type": "boolean",
+              "options": [],
+              "description": "例如：远处一个模糊纸箱、被遮挡的塑料袋、夜间黑色物体、半个快递箱、低分辨率目标，人都看不清。这种不要强行标正负。"
+            },
+            {
+              "name": "open_set_negative",
+              "type": "boolean",
+              "options": [],
+              "description": "定义：完全未知的新物体。例如：奇怪异形包装、新型配送机器人容器、国外特殊物流袋、从未见过的包装形式。"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "callback_url": "http://datahub:8000/api/annotation_callback",
+  "tasks": [
+    {
+      "task_id": "ffea0498-4514-4879-bdaf-31d29bcecd30",
+      "media_type": "image",
+      "frames": [
+        {
+          "frame_id": "ffea0498-4514-4879-bdaf-31d29bcecd30",
+          "url": "file:///C:/Users/Administrator/Documents/01_SECURITY_ASSETS/_imported/45e46d57f1a7407591a57214ed47ead0/neg/54c15091aa3cbe5d3835690b08e8a754.jpeg",
+          "timestamp_ms": 0
+        }
+      ],
+      "fps": null
+    }
+  ]
+}

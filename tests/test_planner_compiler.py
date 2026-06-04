@@ -23,20 +23,23 @@ def _step_names(plan) -> list[str]:
 # ── Fixture: request_151049_1tasks.json ───────────────────────────────────
 
 
-def test_fixture_compiler_produces_8_steps():
-    """Full fixture template → 8 steps with correct topology."""
+def test_fixture_compiler_produces_10_steps():
+    """Full fixture template → 10 steps with correct topology, including
+    fallback steps (quality_fallback, negative_fallback) for 0-detection safety."""
     parsed = _load_parsed(FIXTURE)
     plan = compile_plan(parsed)
 
     names = _step_names(plan)
     assert names == [
-        "negative",   # scene-level pure_negative
+        "negative",           # scene-level pure_negative
         "detect",
         "nms",
         "verify",
-        "quality",    # background_clutter
-        "attribute",  # object_type + is_package
-        "negative",   # ambiguous + open_set_negative
+        "quality",            # background_clutter (per-candidate)
+        "attribute",          # object_type + is_package
+        "negative",           # ambiguous + open_set_negative
+        "quality_fallback",   # scene-level, 0-detection safety
+        "negative_fallback",  # scene-level, 0-detection safety
         "merge",
     ], f"Got: {names}"
 
